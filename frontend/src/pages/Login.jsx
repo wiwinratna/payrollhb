@@ -1,7 +1,19 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { saveAuth } from "@/lib/auth";
+
+function getHomePath(user) {
+  const role = String(user?.role || "").toLowerCase();
+
+  // staff hanya punya payroll + my profile (tanpa dashboard)
+  if (role === "staff" || role === "employee") return "/payrolls";
+
+  // admin roles
+  if (role === "fat" || role === "director" || role === "hcga") return "/dashboard";
+
+  return "/my-profile";
+}
 
 export default function Login() {
   const nav = useNavigate();
@@ -36,7 +48,10 @@ export default function Login() {
       }
 
       saveAuth(data.token, data.user);
-      nav("/payrolls", { replace: true });
+
+      // ✅ redirect sesuai role
+      const home = getHomePath(data.user);
+      nav(home, { replace: true });
     } catch (e2) {
       setErr(e2?.message || "Login gagal.");
     } finally {
@@ -104,8 +119,14 @@ export default function Login() {
 
               {/* mini blocks, bukan card gede */}
               <div className="mt-8 grid max-w-md grid-cols-1 sm:grid-cols-2 gap-3">
-                <Mini title="Perhitungan Payroll" desc="Perhitungan gaji dilakukan berdasarkan komponen yang telah ditetapkan." />
-                <Mini title="Kebutuhan Internal" desc="Informasi gaji digunakan untuk keperluan internal institute." />
+                <Mini
+                  title="Perhitungan Payroll"
+                  desc="Perhitungan gaji dilakukan berdasarkan komponen yang telah ditetapkan."
+                />
+                <Mini
+                  title="Kebutuhan Internal"
+                  desc="Informasi gaji digunakan untuk keperluan internal institute."
+                />
               </div>
 
               <p className="mt-6 max-w-md text-[12px] text-white/75 leading-relaxed">
@@ -124,17 +145,15 @@ export default function Login() {
           <div className="w-full max-w-md">
             <div className="flex items-center justify-between">
               <div className="text-xs text-slate-500">Login</div>
-              <Link
-                to="/register"
-                className="text-sm font-semibold text-sky-700 hover:underline"
-              >
-                Register Staff →
-              </Link>
+              {/* ✅ tidak ada register */}
+              <div className="text-xs text-slate-500">
+                Akun dibuat oleh <span className="font-semibold text-slate-700">HCGA</span>
+              </div>
             </div>
 
             <h2 className="mt-3 text-3xl font-black text-slate-900">Login Payroll</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Silakan masuk menggunakan akun staff yang terdaftar.
+              Silakan masuk menggunakan akun yang telah dibuat oleh HCGA.
             </p>
 
             {err && (
@@ -176,13 +195,6 @@ export default function Login() {
               >
                 {loading ? "Loading..." : "Login"}
               </button>
-
-              <div className="text-center text-xs text-slate-500">
-                Belum memiliki akun?{" "}
-                <Link to="/register" className="font-semibold text-sky-700 hover:underline">
-                  Register Staff
-                </Link>
-              </div>
 
               <div className="pt-2 text-center text-[11px] text-slate-400">
                 © {new Date().getFullYear()} Human Plus Institute — Internal System

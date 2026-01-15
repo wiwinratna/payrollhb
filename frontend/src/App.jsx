@@ -1,12 +1,15 @@
+// App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { isAuthed } from "./lib/auth";
+import { getUser, isAuthed } from "./lib/auth";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AppLayout from "./components/AppLayout";
+import RoleRoute from "@/components/RoleRoute";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import DashboardPage from "./pages/DashboardPage";
 
 import PayrollList from "./pages/PayrollList";
 import PayrollCreatePage from "./pages/PayrollCreatePage";
@@ -17,17 +20,32 @@ import EmployeesPage from "./pages/EmployeesPage";
 import EmployeeCreatePage from "./pages/EmployeeCreatePage";
 import EmployeeEditPage from "./pages/EmployeeEditPage";
 import SalaryProfileCreatePage from "./pages/SalaryProfileCreatePage";
+import EmployeeDetailPage from "./pages/EmployeeDetailPage";
 
 import MyProfilePage from "./pages/MyProfilePage";
-
-// ✅ ADD THIS
 import AccountCreatePage from "./pages/AccountCreatePage";
+
+// ✅ NEW: laporan payroll
+import PayrollReportPage from "./pages/PayrollReportPage";
+
+function getHomePath(user) {
+  const role = String(user?.role || "").toLowerCase();
+
+  if (role === "staff" || role === "employee") return "/payrolls";
+  if (role === "fat" || role === "director" || role === "hcga") return "/dashboard";
+
+  return "/my-profile";
+}
 
 export default function App() {
   const [authed, setAuthed] = useState(() => isAuthed());
+  const [me, setMe] = useState(() => getUser());
 
   useEffect(() => {
-    const sync = () => setAuthed(isAuthed());
+    const sync = () => {
+      setAuthed(isAuthed());
+      setMe(getUser());
+    };
     window.addEventListener("auth:changed", sync);
     window.addEventListener("storage", sync);
     return () => {
@@ -36,15 +54,17 @@ export default function App() {
     };
   }, []);
 
+  const home = getHomePath(me);
+
   return (
     <BrowserRouter>
       <Routes>
         {/* ROOT */}
-        <Route path="/" element={<Navigate to={authed ? "/payrolls" : "/login"} replace />} />
+        <Route path="/" element={<Navigate to={authed ? home : "/login"} replace />} />
 
         {/* PUBLIC */}
-        <Route path="/login" element={authed ? <Navigate to="/payrolls" replace /> : <Login />} />
-        <Route path="/register" element={authed ? <Navigate to="/payrolls" replace /> : <Register />} />
+        <Route path="/login" element={authed ? <Navigate to={home} replace /> : <Login />} />
+        <Route path="/register" element={authed ? <Navigate to={home} replace /> : <Register />} />
 
         {/* PROTECTED + LAYOUT */}
         <Route
@@ -54,27 +74,129 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          {/* Payroll */}
-          <Route path="/payrolls" element={<PayrollList />} />
-          <Route path="/payrolls/new" element={<PayrollCreatePage />} />
-          <Route path="/payrolls/:id" element={<PayrollDetailPage />} />
-          <Route path="/payrolls/:id/edit" element={<PayrollEditPage />} />
+          {/* DASHBOARD */}
+          <Route
+            path="/dashboard"
+            element={
+              <RoleRoute allow={["staff", "fat", "director", "hcga"]}>
+                <DashboardPage />
+              </RoleRoute>
+            }
+          />
 
-          {/* Employees */}
-          <Route path="/employees" element={<EmployeesPage />} />
-          <Route path="/employees/new" element={<EmployeeCreatePage />} />
-          <Route path="/employees/:id/edit" element={<EmployeeEditPage />} />
-          <Route path="/employees/:id/salary-profile/new" element={<SalaryProfileCreatePage />} />
+          {/* PAYROLL: HCGA TIDAK BOLEH */}
+          <Route
+            path="/payrolls"
+            element={
+              <RoleRoute allow={["staff", "fat", "director"]}>
+                <PayrollList />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/payrolls/:id"
+            element={
+              <RoleRoute allow={["staff", "fat", "director"]}>
+                <PayrollDetailPage />
+              </RoleRoute>
+            }
+          />
 
-          {/* ✅ Create Account */}
-          <Route path="/accounts/create" element={<AccountCreatePage />} />
+          {/* PAYROLL CREATE/EDIT: FAT saja */}
+          <Route
+            path="/payrolls/new"
+            element={
+              <RoleRoute allow={["fat"]}>
+                <PayrollCreatePage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/payrolls/:id/edit"
+            element={
+              <RoleRoute allow={["fat"]}>
+                <PayrollEditPage />
+              </RoleRoute>
+            }
+          />
 
-          {/* My Profile */}
-          <Route path="/my-profile" element={<MyProfilePage />} />
+          {/* ✅ REPORT PAYROLL: FAT + DIRECTOR */}
+          <Route
+            path="/reports/payroll"
+            element={
+              <RoleRoute allow={["fat", "director"]}>
+                <PayrollReportPage />
+              </RoleRoute>
+            }
+          />
+
+          {/* EMPLOYEES */}
+          <Route
+            path="/employees"
+            element={
+              <RoleRoute allow={["hcga", "fat"]}>
+                <EmployeesPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/employees/:id"
+            element={
+              <RoleRoute allow={["hcga", "fat"]}>
+                <EmployeeDetailPage />
+              </RoleRoute>
+            }
+          />
+
+          {/* EMPLOYEE CREATE/EDIT/SET SALARY: HCGA saja */}
+          <Route
+            path="/employees/new"
+            element={
+              <RoleRoute allow={["hcga"]}>
+                <EmployeeCreatePage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/employees/:id/edit"
+            element={
+              <RoleRoute allow={["hcga"]}>
+                <EmployeeEditPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/employees/:id/salary-profile/new"
+            element={
+              <RoleRoute allow={["hcga"]}>
+                <SalaryProfileCreatePage />
+              </RoleRoute>
+            }
+          />
+
+          {/* CREATE ACCOUNT: HCGA saja */}
+          <Route
+            path="/accounts/create"
+            element={
+              <RoleRoute allow={["hcga"]}>
+                <AccountCreatePage />
+              </RoleRoute>
+            }
+          />
+
+          {/* MY PROFILE */}
+          <Route
+            path="/my-profile"
+            element={
+              <RoleRoute allow={["staff", "fat", "director", "hcga"]}>
+                <MyProfilePage />
+              </RoleRoute>
+            }
+          />
         </Route>
 
         {/* FALLBACK */}
-        <Route path="*" element={<Navigate to={authed ? "/payrolls" : "/login"} replace />} />
+        <Route path="*" element={<Navigate to={authed ? home : "/login"} replace />} />
       </Routes>
     </BrowserRouter>
   );

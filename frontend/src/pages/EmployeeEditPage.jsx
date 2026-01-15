@@ -10,7 +10,9 @@ export default function EmployeeEditPage() {
   const nav = useNavigate();
 
   const user = getUser();
-  const canManage = user?.role === "fat" || user?.role === "director";
+  const role = String(user?.role || "").toLowerCase();
+  const canManage = role === "hcga";
+
 
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,7 @@ export default function EmployeeEditPage() {
         },
       });
 
+      // optional: sync header user name kalau kebetulan employee ini user yang login
       try {
         const me = await api("/me");
         updateAuthUser({ name: me?.name, role: me?.role });
@@ -98,7 +101,8 @@ export default function EmployeeEditPage() {
         updateAuthUser({ name: form.name });
       }
 
-      nav("/employees", { replace: true });
+      // ✅ balik ke detail
+      nav(`/employees/${id}`, { replace: true });
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -164,8 +168,13 @@ export default function EmployeeEditPage() {
                   <h3 className="text-sm font-bold text-slate-900">Basic Information</h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input label="Employee Code" value={form.employee_code} required
-                      onChange={(v) => setForm(p => ({ ...p, employee_code: v }))} />
+                    <Input
+                      label="Employee Code" value={form.employee_code}
+                      required
+                      readOnly
+                      disabled
+                      onChange={() => {}}
+                    />
                     <Input label="Name" value={form.name} required
                       onChange={(v) => setForm(p => ({ ...p, name: v }))} />
                     <Input label="Department" value={form.department}
@@ -241,15 +250,20 @@ export default function EmployeeEditPage() {
 }
 
 /* ===== Small reusable inputs ===== */
-function Input({ label, value, onChange, required, full }) {
+function Input({ label, value, onChange, required, full, readOnly, disabled }) {
   return (
     <div className={full ? "md:col-span-2 space-y-1" : "space-y-1"}>
       <label className="text-xs font-medium text-slate-600">{label}</label>
       <input
-        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+        className={[
+          "w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40",
+          (readOnly || disabled) ? "bg-slate-100 text-slate-600 cursor-not-allowed" : "bg-white",
+        ].join(" ")}
         value={value}
         required={required}
-        onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
+        disabled={disabled}
+        onChange={(e) => onChange?.(e.target.value)}
       />
     </div>
   );

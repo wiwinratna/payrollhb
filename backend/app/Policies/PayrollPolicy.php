@@ -26,17 +26,15 @@ class PayrollPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['fat','director'], true);
+        return $user->role === 'fat';
     }
-
     public function update(User $user, Payroll $payroll): bool
     {
-        return in_array($user->role, ['fat','director'], true);
+        return $user->role === 'fat';
     }
-
     public function delete(User $user, Payroll $payroll): bool
     {
-        return in_array($user->role, ['fat','director'], true);
+        return $user->role === 'fat';
     }
 
         /**
