@@ -4,35 +4,59 @@ import { getUser, isAuthed, clearAuth } from "@/lib/auth";
 import { useEffect, useMemo, useState } from "react";
 
 function menuByRole(role) {
-  // ✅ My Profile selalu ada untuk semua role
+  const r = String(role || "").toLowerCase();
+
+  // STAFF (default)
   const base = [
     { to: "/payrolls", label: "Payroll" },
     { to: "/my-profile", label: "My Profile" },
   ];
 
-  // ✅ FAT / Director dapat menu tambahan
-  if (role === "fat" || role === "director") {
+  // FAT: payroll + report + bisa lihat employee (read-only)
+  if (r === "fat") {
     return [
+      { to: "/dashboard", label: "Dashboard" },
       { to: "/payrolls", label: "Payroll" },
+      { to: "/reports/payroll", label: "Payroll Report" }, // ✅ NEW
+      { to: "/employees", label: "Employees" },
+      { to: "/my-profile", label: "My Profile" },
+    ];
+  }
+
+  // DIRECTOR: payroll view + report (tanpa employees)
+  if (r === "director") {
+    return [
+      { to: "/dashboard", label: "Dashboard" },
+      { to: "/payrolls", label: "Payroll" },
+      { to: "/reports/payroll", label: "Payroll Report" }, // ✅ NEW
+      { to: "/my-profile", label: "My Profile" },
+    ];
+  }
+
+  // HCGA: onboarding employee + create account
+  if (r === "hcga") {
+    return [
+      { to: "/dashboard", label: "Dashboard" },
       { to: "/employees", label: "Employees" },
       { to: "/accounts/create", label: "Create Account" },
       { to: "/my-profile", label: "My Profile" },
     ];
   }
 
-  // ✅ Staff / role lain
   return base;
 }
 
 function roleLabel(role) {
+  const r = String(role || "").toLowerCase();
   return (
     {
       fat: "Finance Admin",
       director: "Director",
       staff: "Staff",
       employee: "Staff",
+      hcga: "HCGA",
       admin: "Admin",
-    }[role] || role || "-"
+    }[r] || r || "-"
   );
 }
 
@@ -54,7 +78,7 @@ export default function AppLayout() {
     };
   }, []);
 
-  // ✅ boot logic: jangan clearAuth kalau token ada tapi user masih null
+  // boot logic
   useEffect(() => {
     if (!isAuthed()) {
       setBooting(false);
@@ -76,7 +100,7 @@ export default function AppLayout() {
     navigate("/login", { replace: true });
   };
 
-  // ✅ Loading screen saat refresh (menghindari putih)
+  // Loading screen saat refresh
   if (booting || (isAuthed() && !user)) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900 flex items-center justify-center">

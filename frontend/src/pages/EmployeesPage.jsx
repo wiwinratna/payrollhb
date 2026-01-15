@@ -41,13 +41,15 @@ function initials(name) {
 export default function EmployeesPage() {
   const nav = useNavigate();
   const user = getUser();
-  const canManage = user?.role === "fat" || user?.role === "director";
+  const role = String(user?.role || "").toLowerCase();
+
+  const isHCGA = role === "hcga";
+  const canView = ["hcga", "fat", "director"].includes(role);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
-  // UI
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
 
@@ -65,10 +67,13 @@ export default function EmployeesPage() {
   }
 
   useEffect(() => {
+    if (!canView) return;
     load();
-  }, []);
+  }, []); // eslint-disable-line
 
   const onDelete = async (id) => {
+    if (!isHCGA) return;
+
     const ok = confirm("Yakin mau hapus employee ini?");
     if (!ok) return;
 
@@ -116,9 +121,16 @@ export default function EmployeesPage() {
     setStatus("all");
   };
 
+  if (!canView) {
+    return (
+      <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        Forbidden: role kamu tidak boleh mengakses halaman Employees.
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
-      {/* bg */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
         <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
@@ -126,7 +138,6 @@ export default function EmployeesPage() {
       </div>
 
       <div className="space-y-6">
-        {/* header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
@@ -140,10 +151,9 @@ export default function EmployeesPage() {
               Employees
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Data pegawai untuk kebutuhan penggajian dan salary profile.
+              Data pegawai untuk kebutuhan administrasi dan payroll.
             </p>
 
-            {/* chips */}
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700">
                 <span className="h-2 w-2 rounded-full bg-slate-400" />
@@ -170,7 +180,7 @@ export default function EmployeesPage() {
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
 
-            {canManage && (
+            {isHCGA && (
               <Button
                 onClick={() => nav("/employees/new")}
                 className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
@@ -181,14 +191,12 @@ export default function EmployeesPage() {
           </div>
         </div>
 
-        {/* error */}
         {err && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {err}
           </div>
         )}
 
-        {/* filters */}
         <div className="rounded-3xl border border-slate-200 bg-white/70 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)]">
           <div className="p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
             <div className="md:col-span-8">
@@ -234,7 +242,6 @@ export default function EmployeesPage() {
           </div>
         </div>
 
-        {/* table */}
         <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
             <div>
@@ -242,7 +249,7 @@ export default function EmployeesPage() {
                 Employee List
               </div>
               <div className="text-xs text-slate-500">
-                Klik aksi untuk mengatur salary / edit / hapus employee.
+                Klik employee untuk melihat detail.
               </div>
             </div>
             <div className="text-xs text-slate-500">
@@ -251,136 +258,148 @@ export default function EmployeesPage() {
           </div>
 
           <div className="overflow-x-auto">
-            {/* padding kiri-kanan supaya tidak mepet card */}
             <div className="px-8">
               <Table className="min-w-[900px]">
-
-              <TableHeader className="sticky top-0 z-10">
-                <TableRow className="bg-slate-50/80">
-                  <TableHead className="text-slate-700 pl-6 w-[340px]">
-                    Employee
-                  </TableHead>
-                  <TableHead className="text-slate-700 w-[180px]">
-                    Department
-                  </TableHead>
-                  <TableHead className="text-slate-700 w-[180px]">
-                    Position
-                  </TableHead>
-                  <TableHead className="text-slate-700 w-[140px]">
-                    Status
-                  </TableHead>
-                  <TableHead className="text-center text-slate-700 w-[320px] pr-6">
-                    Action
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {loading && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="py-12 text-center text-slate-500"
-                    >
-                      Loading...
-                    </TableCell>
+                <TableHeader className="sticky top-0 z-10">
+                  <TableRow className="bg-slate-50/80">
+                    <TableHead className="text-slate-700 pl-6 w-[340px]">
+                      Employee
+                    </TableHead>
+                    <TableHead className="text-slate-700 w-[180px]">
+                      Department
+                    </TableHead>
+                    <TableHead className="text-slate-700 w-[180px]">
+                      Position
+                    </TableHead>
+                    <TableHead className="text-slate-700 w-[140px]">
+                      Status
+                    </TableHead>
+                    <TableHead className="text-center text-slate-700 w-[320px] pr-6">
+                      Action
+                    </TableHead>
                   </TableRow>
-                )}
+                </TableHeader>
 
-                {!loading && filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="py-12 text-center text-slate-500"
-                    >
-                      Tidak ada employee yang sesuai.
-                    </TableCell>
-                  </TableRow>
-                )}
-
-                {!loading &&
-                  filtered.map((r, idx) => (
-                    <TableRow
-                      key={r.id}
-                      className={[
-                        "transition align-middle",
-                        idx % 2 === 0 ? "bg-white/40" : "bg-white/20",
-                        "hover:bg-slate-50/80",
-                      ].join(" ")}
-                    >
-                      {/* employee cell */}
-                      <TableCell className="pl-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-2xl border border-slate-200 bg-white grid place-items-center text-sm font-extrabold text-slate-700 shadow-sm shrink-0">
-                            {initials(r.name)}
-                          </div>
-
-                          <div className="min-w-0">
-                            <div className="font-semibold text-slate-900 truncate">
-                              {r.name || "-"}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {r.employee_code || "-"}
-                            </div>
-                          </div>
-                        </div>
+                <TableBody>
+                  {loading && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-12 text-center text-slate-500">
+                        Loading...
                       </TableCell>
+                    </TableRow>
+                  )}
 
-                      <TableCell className="text-slate-700 py-4">
-                        {r.department ?? "-"}
+                  {!loading && filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-12 text-center text-slate-500">
+                        Tidak ada employee yang sesuai.
                       </TableCell>
+                    </TableRow>
+                  )}
 
-                      <TableCell className="text-slate-700 py-4">
-                        {r.position ?? "-"}
-                      </TableCell>
-
-                      <TableCell className="py-4">
-                        <StatusBadge status={r.status} />
-                      </TableCell>
-
-                      {/* action cell (rapi: sejajar, gak ada delete turun sendiri) */}
-                      <TableCell className="py-4 pr-6">
-                        <div className="flex justify-center">
-                          <div className="inline-flex flex-wrap items-center justify-center gap-2">
-                            <Button
-                              size="sm"
-                              className="rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold hover:brightness-110"
-                              onClick={() =>
-                                nav(`/employees/${r.id}/salary-profile/new`)
-                              }
+                  {!loading &&
+                    filtered.map((r, idx) => (
+                      <TableRow
+                        key={r.id}
+                        className={[
+                          "transition align-middle",
+                          idx % 2 === 0 ? "bg-white/40" : "bg-white/20",
+                          "hover:bg-slate-50/80",
+                        ].join(" ")}
+                      >
+                        <TableCell className="pl-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="h-10 w-10 rounded-2xl border border-slate-200 bg-white grid place-items-center text-sm font-extrabold text-slate-700 shadow-sm shrink-0 cursor-pointer"
+                              onClick={() => nav(`/employees/${r.id}`)}
+                              title="Lihat detail"
                             >
-                              Set Salary
-                            </Button>
+                              {initials(r.name)}
+                            </div>
 
-                            {canManage && (
-                              <>
+                            <div className="min-w-0">
+                              <div
+                                className="min-w-0 cursor-pointer"
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => nav(`/employees/${r.id}`)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ")
+                                    nav(`/employees/${r.id}`);
+                                }}
+                              >
+                                <div className="font-semibold text-slate-900 truncate hover:underline">
+                                  {r.name || "-"}
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                  {r.employee_code || "-"}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-slate-700 py-4">
+                          {r.department ?? "-"}
+                        </TableCell>
+
+                        <TableCell className="text-slate-700 py-4">
+                          {r.position ?? "-"}
+                        </TableCell>
+
+                        <TableCell className="py-4">
+                          <StatusBadge status={r.status} />
+                        </TableCell>
+
+                        <TableCell className="py-4 pr-6">
+                          <div className="flex justify-center">
+                            <div className="inline-flex flex-wrap items-center justify-center gap-2">
+                              {isHCGA ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold hover:brightness-110"
+                                    onClick={() => nav(`/employees/${r.id}/salary-profile/new`)}
+                                  >
+                                    Set Salary
+                                  </Button>
+
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-xl border-slate-200 bg-white hover:bg-slate-50"
+                                    onClick={() => nav(`/employees/${r.id}/edit`)}
+                                  >
+                                    Edit
+                                  </Button>
+
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="rounded-xl"
+                                    onClick={() => onDelete(r.id)}
+                                  >
+                                    Delete
+                                  </Button>
+                                </>
+                              ) : (
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   className="rounded-xl border-slate-200 bg-white hover:bg-slate-50"
-                                  onClick={() => nav(`/employees/${r.id}/edit`)}
+                                  onClick={() => nav(`/employees/${r.id}`)}
                                 >
-                                  Edit
+                                  Detail
                                 </Button>
-
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  className="rounded-xl"
-                                  onClick={() => onDelete(r.id)}
-                                >
-                                  Delete
-                                </Button>
-                              </>
-                            )}
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </div>  
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           <div className="px-6 py-4 border-t border-slate-200/70 text-[11px] text-slate-500 flex items-center justify-between">
@@ -389,11 +408,9 @@ export default function EmployeesPage() {
           </div>
         </div>
 
-        {!canManage && (
-          <p className="text-xs text-slate-500">
-            *Staff hanya bisa melihat data employee dan mengatur salary profile-nya. Edit/Delete hanya untuk FAT/DIRECTOR.
-          </p>
-        )}
+        <p className="text-xs text-slate-500">
+          * Set Salary / Add / Edit / Delete hanya untuk HCGA.
+        </p>
       </div>
     </div>
   );

@@ -8,7 +8,10 @@ import { Badge } from "@/components/ui/badge";
 function formatIDR(n) {
   const num = Number(n ?? 0);
   const safe = Number.isFinite(num) ? num : 0;
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(safe);
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+  }).format(safe);
 }
 
 function periodKey(value) {
@@ -39,7 +42,8 @@ function monthLabel(yyyyMM) {
   return `${map[m] || m} ${y}`;
 }
 
-function StatusBadge({ masked }) {
+// akses nominal
+function AccessBadge({ masked }) {
   if (masked) {
     return (
       <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700">
@@ -58,7 +62,9 @@ function InfoItem({ label, value }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
       <div className="text-[11px] text-slate-500">{label}</div>
-      <div className="mt-0.5 text-sm font-semibold text-slate-900">{value ?? "-"}</div>
+      <div className="mt-0.5 text-sm font-semibold text-slate-900">
+        {value ?? "-"}
+      </div>
     </div>
   );
 }
@@ -70,7 +76,9 @@ export default function PayrollDetailPage() {
   const [row, setRow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [proofLoading, setProofLoading] = useState(false);
 
   const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -93,7 +101,15 @@ export default function PayrollDetailPage() {
 
       if (!res.ok) {
         if (newTab) newTab.close();
-        throw new Error(`Gagal membuka PDF (${res.status}).`);
+
+        // coba baca message json kalau ada
+        let msg = `Gagal membuka PDF (HTTP ${res.status}).`;
+        try {
+          const j = await res.json();
+          if (j?.message) msg = j.message;
+        } catch {}
+
+        throw new Error(msg);
       }
 
       const blob = await res.blob();
@@ -107,6 +123,51 @@ export default function PayrollDetailPage() {
       alert(e?.message || "Gagal membuka PDF.");
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  // ✅ buka bukti transfer via fetch + token (paling aman)
+  const openProof = async (payrollId) => {
+    try {
+      setProofLoading(true);
+
+      const token = getToken();
+      if (!token) throw new Error("Token login tidak ditemukan. Silakan login ulang.");
+
+      // buka tab dulu supaya popup tidak diblok
+      const newTab = window.open("", "_blank", "noopener,noreferrer");
+
+      const res = await fetch(`${API_BASE}/api/payrolls/${payrollId}/proof`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "*/*",
+        },
+      });
+
+      if (!res.ok) {
+        if (newTab) newTab.close();
+
+        // biasanya backend kirim JSON {message: "..."}
+        let msg = `HTTP ${res.status}`;
+        try {
+          const j = await res.json();
+          if (j?.message) msg = j.message;
+        } catch {}
+
+        throw new Error(msg);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      if (newTab) newTab.location.href = url;
+      else window.location.href = url;
+
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      alert(e?.message || "Bukti transfer belum tersedia / kamu tidak punya akses.");
+    } finally {
+      setProofLoading(false);
     }
   };
 
@@ -125,7 +186,10 @@ export default function PayrollDetailPage() {
     };
   }, [id]);
 
-  const periodeLabel = useMemo(() => monthLabel(periodKey(row?.periode)), [row?.periode]);
+  const periodeLabel = useMemo(
+    () => monthLabel(periodKey(row?.periode)),
+    [row?.periode]
+  );
 
   const computedTotal = useMemo(() => {
     if (!row) return 0;
@@ -136,9 +200,14 @@ export default function PayrollDetailPage() {
     return gp + tj - pt;
   }, [row]);
 
+  const isPaid = useMemo(
+    () => String(row?.status || "").toLowerCase() === "paid",
+    [row?.status]
+  );
+
   return (
     <div className="relative">
-      {/* Soft background (selaras PayrollList) */}
+      {/* Soft background */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
         <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
@@ -160,12 +229,21 @@ export default function PayrollDetailPage() {
               <h1 className="text-3xl font-black tracking-tight text-slate-900">
                 Slip Gaji
               </h1>
-              {!loading && row && <StatusBadge masked={!!row.masked} />}
+
+              {!loading && row && <AccessBadge masked={!!row.masked} />}
+
+              {!loading && row && isPaid && (
+                <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+                  PAID
+                </Badge>
+              )}
             </div>
 
             <p className="mt-1 text-sm text-slate-600">
               Periode:{" "}
-              <span className="font-semibold text-slate-800">{periodeLabel || "-"}</span>
+              <span className="font-semibold text-slate-800">
+                {periodeLabel || "-"}
+              </span>
             </p>
           </div>
 
@@ -178,6 +256,7 @@ export default function PayrollDetailPage() {
               Kembali
             </Button>
 
+            {/* PDF */}
             <Button
               variant="outline"
               onClick={() => row?.id && openPayrollPdf(row.id)}
@@ -187,6 +266,19 @@ export default function PayrollDetailPage() {
             >
               {pdfLoading ? "Membuka PDF..." : "Buka PDF (Print)"}
             </Button>
+
+            {/* ✅ Bukti Transfer (hanya muncul kalau PAID) */}
+            {row?.id && isPaid && (
+              <Button
+                variant="outline"
+                onClick={() => openProof(row.id)}
+                disabled={proofLoading}
+                className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+                title="Buka bukti transfer di tab baru"
+              >
+                {proofLoading ? "Membuka..." : "Bukti Transfer"}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -316,7 +408,9 @@ export default function PayrollDetailPage() {
                       </div>
 
                       <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-sky-50 to-indigo-50">
-                        <span className="text-sm font-extrabold text-slate-900">Total</span>
+                        <span className="text-sm font-extrabold text-slate-900">
+                          Total
+                        </span>
                         <span className="text-base font-extrabold text-slate-900">
                           {formatIDR(computedTotal)}
                         </span>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
-import { getUser, isAuthed } from "@/lib/auth";
+import { getUser, isAuthed, getToken } from "@/lib/auth";
 import {
   Table,
   TableHeader,
@@ -27,9 +27,41 @@ export default function PayrollList() {
 
   const navigate = useNavigate();
   const user = getUser();
-  const canManage = user?.role === "fat" || user?.role === "director";
 
-  // ===== Helpers: Periode Bulan-Tahun (YYYY-MM) =====
+  // ===== ROLE =====
+  const role = String(user?.role || "").toLowerCase();
+  const isFAT = role === "fat";
+  const isDirector = role === "director";
+  const canAction = isFAT || isDirector;
+
+  // =========================
+  // ✅ MARK PAID MODAL STATE
+  // =========================
+  const [paidOpen, setPaidOpen] = useState(false);
+  const [paidTarget, setPaidTarget] = useState(null);
+  const [paidFile, setPaidFile] = useState(null);
+  const [paidRef, setPaidRef] = useState("");
+  const [paidNote, setPaidNote] = useState("");
+  const [paidSubmitting, setPaidSubmitting] = useState(false);
+
+  const openPaidModal = (row) => {
+    setPaidTarget(row);
+    setPaidFile(null);
+    setPaidRef("");
+    setPaidNote("");
+    setPaidOpen(true);
+  };
+
+  const closePaidModal = () => {
+    if (paidSubmitting) return;
+    setPaidOpen(false);
+    setPaidTarget(null);
+    setPaidFile(null);
+    setPaidRef("");
+    setPaidNote("");
+  };
+
+  // ===== Helpers =====
   const periodKey = (value) => {
     const s = String(value || "").trim();
     if (!s) return "";
@@ -64,12 +96,15 @@ export default function PayrollList() {
     return s[0].toUpperCase();
   };
 
+  const statusLower = (s) => String(s || "").toLowerCase();
+
   // ===== Load =====
   const load = async () => {
     setErr("");
     setLoading(true);
     try {
-      const data = await api("/payrolls");
+      const qs = isDirector ? "?status=requested" : "";
+      const data = await api(`/payrolls${qs}`);
       setRows(Array.isArray(data) ? data : data?.data ?? []);
     } catch (e) {
       setErr(e?.message || "Gagal memuat data payroll.");
@@ -84,6 +119,7 @@ export default function PayrollList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ===== Actions =====
   const onDelete = async (id) => {
     const ok = confirm("Yakin mau hapus payroll ini?");
     if (!ok) return;
@@ -95,7 +131,102 @@ export default function PayrollList() {
     }
   };
 
-  const StatusBadge = ({ masked }) => {
+  const onRequestPayment = async (id) => {
+    const ok = confirm("Kirim payroll ini ke Director untuk approval?");
+    if (!ok) return;
+    try {
+      await api(`/payrolls/${id}/request-payment`, { method: "POST" });
+      await load();
+    } catch (e) {
+      alert(e?.message || "Gagal request approval.");
+    }
+  };
+
+  const onApprove = async (id) => {
+    const ok = confirm("Approve payroll ini?");
+    if (!ok) return;
+    try {
+      await api(`/payrolls/${id}/approve`, { method: "POST" });
+      await load();
+    } catch (e) {
+      alert(e?.message || "Gagal approve payroll.");
+    }
+  };
+
+  const onReject = async (id) => {
+    const note = prompt("Alasan reject (wajib diisi):");
+    if (!note) return alert("Alasan reject wajib diisi.");
+    try {
+      await api(`/payrolls/${id}/reject`, {
+        method: "POST",
+        body: { approval_note: note },
+      });
+      await load();
+    } catch (e) {
+      alert(e?.message || "Gagal reject payroll.");
+    }
+  };
+
+  // ✅ MARK PAID (UPLOAD BUKTI) — pakai fetch + FormData
+  const submitMarkPaid = async () => {
+    if (!paidTarget?.id) return;
+
+    if (!paidFile) {
+      alert("Bukti transfer wajib di-upload dulu.");
+      return;
+    }
+
+    setPaidSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append("proof", paidFile);
+      if (paidRef) fd.append("paid_ref", paidRef);
+      if (paidNote) fd.append("paid_note", paidNote);
+
+      const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+      const url = `${BASE_URL}/api/payrolls/${paidTarget.id}/mark-paid`;
+
+      // ✅ TOKEN YANG BENAR (dari auth.js kamu: payroll_token)
+      const token = getToken();
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          // jangan set Content-Type (biar boundary FormData otomatis)
+        },
+        body: fd,
+      });
+
+      const text = await res.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = text;
+      }
+
+      if (!res.ok) {
+        const msg =
+          data && typeof data === "object" && data.message
+            ? data.message
+            : `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+
+      closePaidModal();
+      await load();
+      alert("Berhasil! Payroll sudah PAID + bukti transfer tersimpan.");
+    } catch (e) {
+      alert(e?.message || "Gagal mark paid payroll.");
+    } finally {
+      setPaidSubmitting(false);
+    }
+  };
+
+  // ===== Badges =====
+  const AccessBadge = ({ masked }) => {
     if (masked) {
       return (
         <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700">
@@ -105,12 +236,49 @@ export default function PayrollList() {
     }
     return (
       <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
-        OK
+        NOMINAL OK
       </Badge>
     );
   };
 
-  // ===== Options periode (bulan-tahun) =====
+  const StatusBadge = ({ status }) => {
+    const s = statusLower(status);
+    if (s === "paid") {
+      return (
+        <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+          PAID
+        </Badge>
+      );
+    }
+    if (s === "approved") {
+      return (
+        <Badge className="rounded-full border border-sky-200 bg-sky-50 text-sky-700">
+          APPROVED
+        </Badge>
+      );
+    }
+    if (s === "requested") {
+      return (
+        <Badge className="rounded-full border border-amber-200 bg-amber-50 text-amber-800">
+          REQUESTED
+        </Badge>
+      );
+    }
+    if (s === "rejected") {
+      return (
+        <Badge className="rounded-full border border-rose-200 bg-rose-50 text-rose-700">
+          REJECTED
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="rounded-full border border-slate-200 bg-white text-slate-700">
+        DRAFT
+      </Badge>
+    );
+  };
+
+  // ===== Options periode =====
   const periodOptions = useMemo(() => {
     const set = new Set();
     rows.forEach((r) => {
@@ -136,17 +304,17 @@ export default function PayrollList() {
     });
   }, [rows, q, period]);
 
-  // reset page kalau filter berubah
   useEffect(() => {
     setPage(1);
   }, [q, period]);
 
-  // ===== Summary =====
   const summary = useMemo(() => {
     const total = filtered.length;
-    const ok = filtered.filter((x) => !x.masked).length;
     const masked = filtered.filter((x) => !!x.masked).length;
-    return { total, ok, masked };
+    const pending = filtered.filter(
+      (x) => statusLower(x.status) === "requested"
+    ).length;
+    return { total, masked, pending };
   }, [filtered]);
 
   const resetFilters = () => {
@@ -162,7 +330,6 @@ export default function PayrollList() {
   const paged = filtered.slice(start, end);
 
   const pageItems = useMemo(() => {
-    // tampilkan maksimal 7 tombol: 1 ... 3 4 5 ... last
     const items = [];
     const add = (v) => items.push(v);
 
@@ -200,10 +367,14 @@ export default function PayrollList() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-sky-500" />
-                <span className="text-sm font-semibold text-slate-700">Human Plus Institute</span>
+                <span className="text-sm font-semibold text-slate-700">
+                  Human Plus Institute
+                </span>
               </div>
 
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">Payroll</h1>
+              <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
+                Payroll
+              </h1>
               <p className="mt-1 text-sm text-slate-600">
                 Kelola dan lihat slip gaji per periode. Gunakan pencarian & filter agar lebih cepat.
               </p>
@@ -213,14 +384,18 @@ export default function PayrollList() {
                   <span className="h-2 w-2 rounded-full bg-slate-400" />
                   Total: {loading ? "…" : summary.total}
                 </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  OK: {loading ? "…" : summary.ok}
-                </span>
+
                 <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
                   <span className="h-2 w-2 rounded-full bg-slate-500" />
                   Masked: {loading ? "…" : summary.masked}
                 </span>
+
+                {isDirector && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    Pending Approval: {loading ? "…" : summary.pending}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -234,7 +409,7 @@ export default function PayrollList() {
                 {loading ? "Refreshing..." : "Refresh"}
               </Button>
 
-              {canManage && (
+              {isFAT && (
                 <Button
                   onClick={() => navigate("/payrolls/new")}
                   className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
@@ -258,7 +433,9 @@ export default function PayrollList() {
             <div className="md:col-span-6">
               <div className="text-sm font-semibold text-slate-800">Cari Karyawan</div>
               <div className="mt-2 relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔎</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  🔎
+                </span>
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
@@ -301,102 +478,194 @@ export default function PayrollList() {
           <div className="px-8 py-5 border-b border-slate-200/70 flex items-center justify-between">
             <div>
               <div className="text-sm font-semibold text-slate-900">Payroll Records</div>
-              <div className="text-xs text-slate-500">Klik baris untuk membuka detail payroll.</div>
+              <div className="text-xs text-slate-500">
+                Klik baris untuk membuka detail payroll.
+              </div>
             </div>
 
             <div className="text-xs text-slate-500">
-              {loading ? "Memuat..." : `Menampilkan ${filtered.length === 0 ? 0 : start + 1}-${Math.min(end, filtered.length)} dari ${filtered.length}`}
+              {loading
+                ? "Memuat..."
+                : `Menampilkan ${
+                    filtered.length === 0 ? 0 : start + 1
+                  }-${Math.min(end, filtered.length)} dari ${filtered.length}`}
             </div>
           </div>
-            <div className="overflow-x-auto">
-              <div className="px-10"> {/* <- ini yang bikin jarak dari pinggir card */}
-                <Table>
-              <TableHeader className="sticky top-0 z-10">
-                <TableRow className="bg-slate-50/80">
-                  {/* padding tabel biar ga mepet */}
-                  <TableHead className="px-8 first:pl-10 text-slate-700">Karyawan</TableHead>
-                  <TableHead className="px-8 text-slate-700">Periode</TableHead>
-                  <TableHead className="px-8 text-slate-700">Status</TableHead>
-                  {canManage && (
-                    <TableHead className="px-8 text-right text-slate-700 w-[200px]">Aksi</TableHead>
-                  )}
-                </TableRow>
-              </TableHeader>
 
-              <TableBody>
-                {paged.map((r, idx) => (
-                  <TableRow
-                    key={r.id}
-                    className={[
-                      "cursor-pointer transition",
-                      idx % 2 === 0 ? "bg-white/40" : "bg-white/20",
-                      "hover:bg-slate-50/80",
-                    ].join(" ")}
-                    onClick={() => navigate(`/payrolls/${r.id}`)}
-                  >
-                    <TableCell className="px-8 first:pl-10 py-5">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 h-10 w-10 rounded-2xl border border-slate-200 bg-white grid place-items-center text-sm font-extrabold text-slate-700 shadow-sm">
-                          {initials(r.employee_name)}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-slate-900">{r.employee_name ?? "-"}</div>
-                          {r.employee_code && <div className="text-xs text-slate-500">{r.employee_code}</div>}
-                        </div>
-                      </div>
-                    </TableCell>
+          <div className="overflow-x-auto">
+            <div className="px-10">
+              <Table>
+                <TableHeader className="sticky top-0 z-10">
+                  <TableRow className="bg-slate-50/80">
+                    <TableHead className="px-8 first:pl-10 text-slate-700">
+                      Karyawan
+                    </TableHead>
+                    <TableHead className="px-8 text-slate-700">Periode</TableHead>
+                    <TableHead className="px-8 text-slate-700">Status</TableHead>
+                    <TableHead className="px-8 text-slate-700">
+                      Akses Nominal
+                    </TableHead>
 
-                    <TableCell className="px-8 text-slate-700">
-                      <span className="inline-flex rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-700">
-                        {monthLabel(periodKey(r.periode))}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="px-8">
-                      <StatusBadge masked={r.masked} />
-                    </TableCell>
-
-                    {canManage && (
-                      <TableCell className="px-8 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="inline-flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-xl border-slate-200 bg-white hover:bg-slate-50"
-                            onClick={() => navigate(`/payrolls/${r.id}/edit`)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="rounded-xl"
-                            onClick={() => onDelete(r.id)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </TableCell>
+                    {canAction && (
+                      <TableHead className="px-8 text-right text-slate-700 w-[340px]">
+                        Aksi
+                      </TableHead>
                     )}
                   </TableRow>
-                ))}
+                </TableHeader>
 
-                {filtered.length === 0 && !loading && !err && (
-                  <TableRow>
-                    <TableCell colSpan={canManage ? 4 : 3} className="py-12 text-center text-slate-500">
-                      Tidak ada data yang sesuai dengan pencarian / filter.
-                    </TableCell>
-                  </TableRow>
-                )}
+                <TableBody>
+                  {paged.map((r, idx) => (
+                    <TableRow
+                      key={r.id}
+                      className={[
+                        "cursor-pointer transition",
+                        idx % 2 === 0 ? "bg-white/40" : "bg-white/20",
+                        "hover:bg-slate-50/80",
+                      ].join(" ")}
+                      onClick={() => navigate(`/payrolls/${r.id}`)}
+                    >
+                      <TableCell className="px-8 first:pl-10 py-5">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-10 w-10 rounded-2xl border border-slate-200 bg-white grid place-items-center text-sm font-extrabold text-slate-700 shadow-sm">
+                            {initials(r.employee_name)}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900">
+                              {r.employee_name ?? "-"}
+                            </div>
+                            {r.employee_code && (
+                              <div className="text-xs text-slate-500">
+                                {r.employee_code}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
 
-                {loading && (
-                  <TableRow>
-                    <TableCell colSpan={canManage ? 4 : 3} className="py-12 text-center text-slate-500">
-                      Loading...
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
+                      <TableCell className="px-8 text-slate-700">
+                        <span className="inline-flex rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-700">
+                          {monthLabel(periodKey(r.periode))}
+                        </span>
+                      </TableCell>
+
+                      <TableCell className="px-8">
+                        <StatusBadge status={r.status} />
+                      </TableCell>
+
+                      <TableCell className="px-8">
+                        <AccessBadge masked={r.masked} />
+                      </TableCell>
+
+                      {canAction && (
+                        <TableCell
+                          className="px-8 text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="inline-flex gap-2">
+                            {isDirector && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-xl border-slate-200 bg-white hover:bg-slate-50"
+                                  onClick={() => navigate(`/payrolls/${r.id}`)}
+                                >
+                                  Detail
+                                </Button>
+
+                                {statusLower(r.status) === "requested" && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      onClick={() => onApprove(r.id)}
+                                    >
+                                      Approve
+                                    </Button>
+
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="rounded-xl"
+                                      onClick={() => onReject(r.id)}
+                                    >
+                                      Reject
+                                    </Button>
+                                  </>
+                                )}
+                              </>
+                            )}
+
+                            {isFAT && (
+                              <>
+                                {statusLower(r.status) === "draft" && (
+                                  <Button
+                                    size="sm"
+                                    className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
+                                    onClick={() => onRequestPayment(r.id)}
+                                  >
+                                    Request Approval
+                                  </Button>
+                                )}
+
+                                {statusLower(r.status) === "approved" && (
+                                  <Button
+                                    size="sm"
+                                    className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    onClick={() => openPaidModal(r)}
+                                  >
+                                    Mark Paid
+                                  </Button>
+                                )}
+
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="rounded-xl border-slate-200 bg-white hover:bg-slate-50"
+                                  onClick={() => navigate(`/payrolls/${r.id}/edit`)}
+                                >
+                                  Edit
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="rounded-xl"
+                                  onClick={() => onDelete(r.id)}
+                                >
+                                  Delete
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+
+                  {filtered.length === 0 && !loading && !err && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={canAction ? 5 : 4}
+                        className="py-12 text-center text-slate-500"
+                      >
+                        Tidak ada data yang sesuai dengan pencarian / filter.
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {loading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={canAction ? 5 : 4}
+                        className="py-12 text-center text-slate-500"
+                      >
+                        Loading...
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
               </Table>
             </div>
           </div>
@@ -452,6 +721,112 @@ export default function PayrollList() {
           </div>
         </div>
       </div>
+
+      {/* ✅ MODAL MARK PAID */}
+      {paidOpen && (
+        <div className="fixed inset-0 z-[999]">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
+            onClick={closePaidModal}
+          />
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-[0_20px_70px_rgba(2,6,23,0.25)] overflow-hidden">
+              <div className="px-6 py-5 border-b border-slate-200">
+                <div className="text-lg font-black text-slate-900">
+                  Mark Paid + Upload Bukti
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Wajib upload bukti transfer agar tidak asal klik “Paid”.
+                </div>
+              </div>
+
+              <div className="px-6 py-5 space-y-4">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-xs text-slate-500">Payroll</div>
+                  <div className="text-sm font-bold text-slate-900 mt-1">
+                    {paidTarget?.employee_name || "-"} (
+                    {paidTarget?.employee_code || "-"})
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Periode: {monthLabel(periodKey(paidTarget?.periode))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800">
+                    Bukti Transfer <span className="text-rose-600">*</span>
+                  </label>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Format: PDF/JPG/PNG (maks 4MB).
+                  </div>
+
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
+                    onChange={(e) => setPaidFile(e.target.files?.[0] || null)}
+                    disabled={paidSubmitting}
+                  />
+
+                  {paidFile && (
+                    <div className="mt-2 text-xs text-slate-600">
+                      Dipilih:{" "}
+                      <span className="font-semibold">{paidFile.name}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800">
+                    No. Referensi Transfer (opsional)
+                  </label>
+                  <input
+                    value={paidRef}
+                    onChange={(e) => setPaidRef(e.target.value)}
+                    placeholder="Contoh: MBANK-20260115-XYZ"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-4 focus:ring-sky-200/40 focus:border-sky-300"
+                    disabled={paidSubmitting}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800">
+                    Catatan (opsional)
+                  </label>
+                  <textarea
+                    value={paidNote}
+                    onChange={(e) => setPaidNote(e.target.value)}
+                    placeholder="Catatan untuk audit (opsional)"
+                    rows={3}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-4 focus:ring-indigo-200/40 focus:border-indigo-300"
+                    disabled={paidSubmitting}
+                  />
+                </div>
+              </div>
+
+              <div className="px-6 py-5 border-t border-slate-200 flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="rounded-2xl"
+                  onClick={closePaidModal}
+                  disabled={paidSubmitting}
+                >
+                  Batal
+                </Button>
+
+                <Button
+                  className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold"
+                  onClick={submitMarkPaid}
+                  disabled={paidSubmitting || !paidFile}
+                  title={!paidFile ? "Wajib upload bukti dulu" : "Simpan & tandai paid"}
+                >
+                  {paidSubmitting ? "Menyimpan..." : "Confirm Paid"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

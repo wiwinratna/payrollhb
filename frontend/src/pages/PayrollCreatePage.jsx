@@ -22,23 +22,23 @@ function formatIDR(v) {
   }
 }
 
-  function monthToFirstDate(yyyyMM) {
-    if (!yyyyMM) return "";
-    if (/^\d{4}-\d{2}$/.test(yyyyMM)) return `${yyyyMM}-01`;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(yyyyMM)) return yyyyMM;
-    return "";
-  }
+function monthToFirstDate(yyyyMM) {
+  if (!yyyyMM) return "";
+  if (/^\d{4}-\d{2}$/.test(yyyyMM)) return `${yyyyMM}-01`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(yyyyMM)) return yyyyMM;
+  return "";
+}
 
-  function monthToEndDate(yyyyMM) {
-    if (!/^\d{4}-\d{2}$/.test(yyyyMM)) return "";
-    const [y, m] = yyyyMM.split("-").map(Number);
-    // JS: bulan 1-12, end day = new Date(y, m, 0)
-    const last = new Date(y, m, 0);
-    const yyyy = last.getFullYear();
-    const mm = String(last.getMonth() + 1).padStart(2, "0");
-    const dd = String(last.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  }
+function monthToEndDate(yyyyMM) {
+  if (!/^\d{4}-\d{2}$/.test(yyyyMM)) return "";
+  const [y, m] = yyyyMM.split("-").map(Number);
+  // JS: bulan 1-12, end day = new Date(y, m, 0)
+  const last = new Date(y, m, 0);
+  const yyyy = last.getFullYear();
+  const mm = String(last.getMonth() + 1).padStart(2, "0");
+  const dd = String(last.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function PayrollCreatePage() {
   const nav = useNavigate();
@@ -70,6 +70,10 @@ export default function PayrollCreatePage() {
   const [serverError, setServerError] = useState("");
   const [ok, setOk] = useState("");
 
+  // ✅ Opsi 2: boleh pilih "Save draft" atau "Save & request"
+  // Default ON supaya alur approval jalan otomatis.
+  const [autoRequest, setAutoRequest] = useState(true);
+
   function setField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => ({ ...prev, [key]: undefined }));
@@ -80,8 +84,9 @@ export default function PayrollCreatePage() {
   function validate() {
     const e = {};
     if (!form.employee_id) e.employee_id = "Pilih employee dulu.";
-if (!form.periode) e.periode = "Periode wajib diisi.";
-else if (!/^\d{4}-\d{2}$/.test(form.periode)) e.periode = "Format periode harus YYYY-MM.";
+    if (!form.periode) e.periode = "Periode wajib diisi.";
+    else if (!/^\d{4}-\d{2}$/.test(form.periode))
+      e.periode = "Format periode harus YYYY-MM.";
 
     const gp = toNumber(form.gaji_pokok);
     const tj = toNumber(form.tunjangan);
@@ -117,6 +122,11 @@ else if (!/^\d{4}-\d{2}$/.test(form.periode)) e.periode = "Format periode harus 
   }
 
   useEffect(() => {
+    loadEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     setProfileInfo(null);
     setServerError("");
     setOk("");
@@ -135,11 +145,10 @@ else if (!/^\d{4}-\d{2}$/.test(form.periode)) e.periode = "Format periode harus 
 
     setLoadingProfile(true);
     try {
-    const data = await fetchCurrentSalaryProfile(
-      form.employee_id,
-      monthToEndDate(form.periode) // ✅ pakai akhir bulan
-    );
-
+      const data = await fetchCurrentSalaryProfile(
+        form.employee_id,
+        monthToEndDate(form.periode) // ✅ pakai akhir bulan
+      );
 
       setProfileInfo(data);
 
@@ -171,12 +180,19 @@ else if (!/^\d{4}-\d{2}$/.test(form.periode)) e.periode = "Format periode harus 
         tunjangan: toNumber(form.tunjangan),
         potongan: toNumber(form.potongan),
         catatan: form.catatan || null,
+
+        // ✅ Opsi 2: kirim flag ke backend
+        auto_request: autoRequest,
       };
 
       const data = await createPayroll(payload);
       const payrollId = data?.data?.id ?? data?.payroll?.id ?? data?.id;
 
-      setOk("Payroll berhasil dibuat.");
+      setOk(
+        autoRequest
+          ? "Payroll berhasil dibuat dan dikirim untuk approval."
+          : "Payroll berhasil dibuat (draft)."
+      );
 
       if (!payrollId) {
         nav("/payrolls");
@@ -189,7 +205,9 @@ else if (!/^\d{4}-\d{2}$/.test(form.periode)) e.periode = "Format periode harus 
       if (p?.errors) {
         const mapped = {};
         for (const k of Object.keys(p.errors)) {
-          mapped[k] = Array.isArray(p.errors[k]) ? p.errors[k][0] : String(p.errors[k]);
+          mapped[k] = Array.isArray(p.errors[k])
+            ? p.errors[k][0]
+            : String(p.errors[k]);
         }
         setErrors(mapped);
       } else {
@@ -419,6 +437,17 @@ else if (!/^\d{4}-\d{2}$/.test(form.periode)) e.periode = "Format periode harus 
                   <div className="text-xs text-slate-500">
                     Total = gaji pokok + tunjangan − potongan
                   </div>
+
+                  {/* ✅ Toggle Opsi 2 */}
+                  <label className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700 select-none">
+                    <input
+                      type="checkbox"
+                      checked={autoRequest}
+                      onChange={(e) => setAutoRequest(e.target.checked)}
+                      disabled={saving}
+                    />
+                    Langsung minta approval Director
+                  </label>
                 </div>
 
                 <div className="flex gap-2 sm:justify-end">

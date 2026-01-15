@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getToken } from "../lib/auth";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,8 @@ export default function EmployeeCreatePage() {
   const [form, setForm] = useState({
     employee_code: "",
     name: "",
-    department: "Finance",
-    position: "Staff",
+    department: "",
+    position: "",
     status: "active",
 
     // private/sensitive
@@ -29,6 +29,7 @@ export default function EmployeeCreatePage() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [loadingCode, setLoadingCode] = useState(true);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
 
@@ -38,15 +39,59 @@ export default function EmployeeCreatePage() {
     setServerError("");
   }
 
+  // ✅ Auto isi employee_code dari backend (employee terakhir + 1)
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const token = getToken();
+      if (!token) {
+        if (mounted) setLoadingCode(false);
+        return;
+      }
+
+      setLoadingCode(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/employees/next-code`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+
+        const next = String(data?.next_employee_code || "").trim();
+        if (mounted && next) {
+          setForm((p) => ({
+            ...p,
+            employee_code: next,
+            // default yang enak (boleh kamu ubah)
+            department: p.department || "Finance",
+            position: p.position || "Staff",
+          }));
+        }
+      } catch {
+        // kalau gagal, biarin manual (tapi tetap aman)
+      } finally {
+        if (mounted) setLoadingCode(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [API_BASE]);
+
   function validate() {
     const e = {};
-    if (!form.employee_code.trim())
-      e.employee_code = "Employee code wajib diisi (contoh: EMP-001).";
+
+    if (!form.employee_code.trim()) e.employee_code = "Kode pegawai wajib terisi.";
     if (!form.name.trim()) e.name = "Nama wajib diisi.";
-    if (!form.department.trim()) e.department = "Department wajib diisi.";
-    if (!form.position.trim()) e.position = "Position wajib diisi.";
-    if (!["active", "inactive"].includes(form.status))
-      e.status = "Status tidak valid.";
+    if (!form.department.trim()) e.department = "Departemen wajib diisi.";
+    if (!form.position.trim()) e.position = "Jabatan wajib diisi.";
+    if (!["active", "inactive"].includes(form.status)) e.status = "Status tidak valid.";
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -66,6 +111,20 @@ export default function EmployeeCreatePage() {
     setServerError("");
 
     try {
+      const payload = {
+        ...form,
+        // normalisasi nullable biar backend rapi (opsional)
+        department: form.department || null,
+        position: form.position || null,
+        nik: form.nik || null,
+        npwp: form.npwp || null,
+        phone: form.phone || null,
+        address: form.address || null,
+        bank_name: form.bank_name || null,
+        bank_account_name: form.bank_account_name || null,
+        bank_account_number: form.bank_account_number || null,
+      };
+
       const res = await fetch(`${API_BASE}/api/employees`, {
         method: "POST",
         headers: {
@@ -73,7 +132,7 @@ export default function EmployeeCreatePage() {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -88,24 +147,21 @@ export default function EmployeeCreatePage() {
           }
           setErrors(mapped);
         } else {
-          setServerError(data?.message || "Gagal menyimpan employee.");
+          setServerError(data?.message || "Gagal menyimpan data pegawai.");
         }
         return;
       }
 
       const employeeId = data?.employee?.id;
       if (!employeeId) {
-        setServerError(
-          "Employee berhasil dibuat, tapi ID tidak terbaca dari response."
-        );
+        setServerError("Pegawai berhasil dibuat, tapi ID tidak terbaca dari response.");
         return;
       }
 
+      // lanjut ke set salary profile
       navigate(`/employees/${employeeId}/salary-profile/new`);
     } catch (err) {
-      setServerError(
-        "Tidak bisa terhubung ke server. Pastikan backend Laravel jalan."
-      );
+      setServerError("Tidak bisa terhubung ke server. Pastikan backend Laravel berjalan.");
     } finally {
       setLoading(false);
     }
@@ -132,10 +188,10 @@ export default function EmployeeCreatePage() {
             </div>
 
             <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
-              Create Employee
+              Tambah Pegawai
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Isi data pegawai. Setelah ini lanjut ke salary profile.
+              Isi data pegawai. Setelah disimpan, kamu akan diarahkan ke halaman profil gaji.
             </p>
           </div>
 
@@ -145,7 +201,7 @@ export default function EmployeeCreatePage() {
             onClick={() => navigate("/employees")}
             disabled={loading}
           >
-            Back
+            Kembali
           </Button>
         </div>
 
@@ -160,10 +216,10 @@ export default function EmployeeCreatePage() {
         <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-200/70">
             <div className="text-sm font-semibold text-slate-900">
-              Employee Form
+              Form Pegawai
             </div>
             <div className="text-xs text-slate-500">
-              Lengkapi basic info, private info, dan bank info.
+              Lengkapi informasi dasar, data sensitif, dan informasi bank.
             </div>
           </div>
 
@@ -172,7 +228,7 @@ export default function EmployeeCreatePage() {
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-900">
-                  Basic Information
+                  Informasi Dasar
                 </h3>
                 <span className="text-xs text-slate-500">
                   Field bertanda * wajib diisi
@@ -181,30 +237,33 @@ export default function EmployeeCreatePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field
-                  label="Employee Code *"
-                  placeholder="EMP-001"
+                  label="Kode Pegawai *"
+                  placeholder={loadingCode ? "Mengambil kode..." : "EMP-0001"}
                   value={form.employee_code}
                   onChange={(v) => setField("employee_code", v.toUpperCase())}
                   error={errors.employee_code}
+                  disabled // ✅ auto
                 />
 
                 <Field
-                  label="Name *"
-                  placeholder="Pegawai Satu"
+                  label="Nama *"
+                  placeholder="Contoh: Pegawai Satu"
                   value={form.name}
                   onChange={(v) => setField("name", v)}
                   error={errors.name}
                 />
 
                 <Field
-                  label="Department *"
+                  label="Departemen *"
+                  placeholder="Contoh: Finance"
                   value={form.department}
                   onChange={(v) => setField("department", v)}
                   error={errors.department}
                 />
 
                 <Field
-                  label="Position *"
+                  label="Jabatan *"
+                  placeholder="Contoh: Staff"
                   value={form.position}
                   onChange={(v) => setField("position", v)}
                   error={errors.position}
@@ -224,12 +283,15 @@ export default function EmployeeCreatePage() {
                       errors.status ? "border-rose-300" : "",
                     ].join(" ")}
                   >
-                    <option value="active">active</option>
-                    <option value="inactive">inactive</option>
+                    <option value="active">Aktif</option>
+                    <option value="inactive">Nonaktif</option>
                   </select>
                   {errors.status && (
                     <div className="text-xs text-rose-700">{errors.status}</div>
                   )}
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Pegawai nonaktif tidak bisa login.
+                  </div>
                 </div>
               </div>
             </section>
@@ -239,13 +301,13 @@ export default function EmployeeCreatePage() {
             {/* PRIVATE / SENSITIVE INFO */}
             <section className="space-y-4">
               <h3 className="text-sm font-bold text-slate-900">
-                Private / Sensitive Info
+                Data Pribadi / Sensitif
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field
                   label="NIK"
-                  placeholder="3273xxxxxxxxxxxx"
+                  placeholder="Contoh: 3273xxxxxxxxxxxx"
                   value={form.nik}
                   onChange={(v) => setField("nik", v)}
                   error={errors.nik}
@@ -253,59 +315,58 @@ export default function EmployeeCreatePage() {
 
                 <Field
                   label="NPWP"
-                  placeholder="xx.xxx.xxx.x-xxx.xxx"
+                  placeholder="Contoh: xx.xxx.xxx.x-xxx.xxx"
                   value={form.npwp}
                   onChange={(v) => setField("npwp", v)}
                   error={errors.npwp}
                 />
 
                 <Field
-                  label="Phone"
-                  placeholder="08xxxxxxxxxx"
+                  label="No. Telepon"
+                  placeholder="Contoh: 08xxxxxxxxxx"
                   value={form.phone}
                   onChange={(v) => setField("phone", v)}
                   error={errors.phone}
                 />
 
-                <div className="md:col-span-2 space-y-1">
-                  <label className="text-xs font-medium text-slate-600">
-                    Address
-                  </label>
-                  <textarea
-                    value={form.address}
-                    placeholder="Alamat lengkap..."
-                    onChange={(e) => setField("address", e.target.value)}
-                    className={[
-                      "w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition min-h-[90px]",
-                      "border-slate-200 bg-white text-slate-900",
-                      "focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40",
-                      errors.address ? "border-rose-300" : "",
-                    ].join(" ")}
-                  />
-                  {errors.address && (
-                    <div className="text-xs text-rose-700">{errors.address}</div>
-                  )}
-                </div>
+                <Textarea
+                  label="Alamat"
+                  placeholder="Alamat lengkap..."
+                  value={form.address}
+                  onChange={(v) => setField("address", v)}
+                  error={errors.address}
+                />
+              </div>
+            </section>
 
+            <div className="h-px bg-slate-200/70" />
+
+            {/* BANK */}
+            <section className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-900">
+                Informasi Bank
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field
-                  label="Bank Name"
-                  placeholder="BCA / BRI / Mandiri"
+                  label="Nama Bank"
+                  placeholder="Contoh: BCA / BRI / Mandiri"
                   value={form.bank_name}
                   onChange={(v) => setField("bank_name", v)}
                   error={errors.bank_name}
                 />
 
                 <Field
-                  label="Bank Account Name"
-                  placeholder="Nama pemilik rekening"
+                  label="Nama Pemilik Rekening"
+                  placeholder="Contoh: Nama pemilik rekening"
                   value={form.bank_account_name}
                   onChange={(v) => setField("bank_account_name", v)}
                   error={errors.bank_account_name}
                 />
 
                 <Field
-                  label="Bank Account Number"
-                  placeholder="1234567890"
+                  label="Nomor Rekening"
+                  placeholder="Contoh: 1234567890"
                   value={form.bank_account_number}
                   onChange={(v) => setField("bank_account_number", v)}
                   error={errors.bank_account_number}
@@ -317,10 +378,10 @@ export default function EmployeeCreatePage() {
             <div className="flex flex-wrap gap-3 pt-2">
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || loadingCode}
                 className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
               >
-                {loading ? "Saving..." : "Save Employee"}
+                {loading ? "Menyimpan..." : "Simpan Pegawai"}
               </Button>
 
               <Button
@@ -330,7 +391,7 @@ export default function EmployeeCreatePage() {
                 disabled={loading}
                 className="rounded-2xl bg-white/70 border-slate-200 hover:bg-white"
               >
-                Cancel
+                Batal
               </Button>
             </div>
           </form>
@@ -345,16 +406,39 @@ export default function EmployeeCreatePage() {
   );
 }
 
-function Field({ label, value, onChange, placeholder, error }) {
+/* ---------- Small reusable inputs ---------- */
+function Field({ label, value, onChange, placeholder, error, disabled }) {
   return (
     <div className="space-y-1">
       <label className="text-xs font-medium text-slate-600">{label}</label>
       <input
         value={value}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         className={[
           "w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition",
+          disabled ? "bg-slate-50 text-slate-700 cursor-not-allowed" : "bg-white text-slate-900",
+          "border-slate-200",
+          "focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40",
+          error ? "border-rose-300" : "",
+        ].join(" ")}
+      />
+      {error && <div className="text-xs text-rose-700">{error}</div>}
+    </div>
+  );
+}
+
+function Textarea({ label, value, onChange, placeholder, error }) {
+  return (
+    <div className="md:col-span-2 space-y-1">
+      <label className="text-xs font-medium text-slate-600">{label}</label>
+      <textarea
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={[
+          "w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition min-h-[90px]",
           "border-slate-200 bg-white text-slate-900",
           "focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40",
           error ? "border-rose-300" : "",

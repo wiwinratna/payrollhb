@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class AdminUserController extends Controller
 {
@@ -21,7 +22,7 @@ class AdminUserController extends Controller
         $validated = $request->validate([
             'name' => ['required','string','max:255'],
             'email' => ['required','email','max:255','unique:users,email'],
-            'role' => ['required','in:fat,director'],
+            'role' => ['required', Rule::in(['staff','fat','director','hcga'])],
 
             // ✅ password manual (mirip register)
             'password' => ['required','string','min:8','confirmed'],
