@@ -107,6 +107,17 @@ class EmployeeController extends Controller
             'position' => $employee->position,
             'status' => $employee->status,
             'user_id' => $employee->user_id,
+
+            // Phase 1 fields:
+            'grade_id' => $employee->grade_id,
+            'employment_type_id' => $employee->employment_type_id,
+            'work_basis_id' => $employee->work_basis_id,
+            'num_toddlers' => (int) $employee->num_toddlers,
+            'is_trainer' => (bool) $employee->is_trainer,
+            'is_on_probation' => (bool) $employee->is_on_probation,
+            'grade' => $employee->grade,
+            'employment_type' => $employee->employmentType,
+            'work_basis' => $employee->workBasis,
         ];
 
         $alg = strtoupper((string) ($employee->pii_alg ?? 'AES'));
@@ -236,6 +247,7 @@ class EmployeeController extends Controller
             'base_salary' => (string) $base,
             'allowance_fixed' => (string) $allow,
             'deduction_fixed' => (string) $ded,
+            'mandays_rate' => $profile->mandays_rate !== null ? (string) $profile->mandays_rate : null,
             'suggested_total' => (string) ($base + $allow - $ded),
         ]);
     }
@@ -266,9 +278,20 @@ class EmployeeController extends Controller
             'bank_account_number' => ['nullable', 'string', 'max:50'],
 
             'pii_alg' => ['nullable', 'in:AES,RSA'],
+
+            // Phase 1 fields:
+            'grade_id' => ['nullable', 'exists:grades,id'],
+            'employment_type_id' => ['nullable', 'exists:employment_types,id'],
+            'work_basis_id' => ['nullable', 'exists:work_bases,id'],
+            'num_toddlers' => ['nullable', 'integer', 'min:0'],
+            'is_trainer' => ['nullable', 'boolean'],
+            'is_on_probation' => ['nullable', 'boolean'],
         ]);
 
         $data['user_id'] = null;
+        $data['num_toddlers'] = $data['num_toddlers'] ?? 0;
+        $data['is_trainer'] = $data['is_trainer'] ?? false;
+        $data['is_on_probation'] = $data['is_on_probation'] ?? false;
 
         $piiAlg = strtoupper((string) ($data['pii_alg'] ?? 'AES'));
 
@@ -290,15 +313,7 @@ class EmployeeController extends Controller
         $employee = Employee::create($data);
 
         return response()->json([
-            'employee' => [
-                'id' => $employee->id,
-                'employee_code' => $employee->employee_code,
-                'name' => $employee->name,
-                'department' => $employee->department,
-                'position' => $employee->position,
-                'status' => $employee->status,
-                'user_id' => $employee->user_id,
-            ],
+            'employee' => $employee->fresh(['grade', 'employmentType', 'workBasis']),
         ], 201);
     }
 
@@ -320,6 +335,7 @@ class EmployeeController extends Controller
             'daily_rate' => ['nullable', 'numeric', 'min:0'],
             'overtime_rate_per_hour' => ['nullable', 'numeric', 'min:0'],
             'late_penalty_per_minute' => ['nullable', 'numeric', 'min:0'],
+            'mandays_rate' => ['nullable', 'numeric', 'min:0'],
 
             'salary_alg' => ['nullable', 'in:AES,RSA'],
         ]);
@@ -339,6 +355,7 @@ class EmployeeController extends Controller
         $daily = array_key_exists('daily_rate', $data) ? (float) ($data['daily_rate'] ?? 0) : null;
         $ot    = array_key_exists('overtime_rate_per_hour', $data) ? (float) ($data['overtime_rate_per_hour'] ?? 0) : null;
         $late  = array_key_exists('late_penalty_per_minute', $data) ? (float) ($data['late_penalty_per_minute'] ?? 0) : null;
+        $mandays_rate = array_key_exists('mandays_rate', $data) ? (float) ($data['mandays_rate'] ?? 0) : null;
 
         $profile = $employee->salaryProfiles()->create([
             'base_salary' => $base,
@@ -347,6 +364,7 @@ class EmployeeController extends Controller
             'daily_rate' => $daily,
             'overtime_rate_per_hour' => $ot,
             'late_penalty_per_minute' => $late,
+            'mandays_rate' => $mandays_rate,
             'effective_from' => $data['effective_from'],
 
             'base_salary_enc' => $enc((string) $base),
@@ -392,6 +410,14 @@ class EmployeeController extends Controller
             'bank_account_number' => ['sometimes', 'nullable', 'string', 'max:50'],
 
             'pii_alg' => ['sometimes', 'in:AES,RSA'],
+
+            // Phase 1 fields:
+            'grade_id' => ['sometimes', 'nullable', 'exists:grades,id'],
+            'employment_type_id' => ['sometimes', 'nullable', 'exists:employment_types,id'],
+            'work_basis_id' => ['sometimes', 'nullable', 'exists:work_bases,id'],
+            'num_toddlers' => ['sometimes', 'integer', 'min:0'],
+            'is_trainer' => ['sometimes', 'boolean'],
+            'is_on_probation' => ['sometimes', 'boolean'],
         ]);
 
         // ✅ HARD BLOCK: jangan pernah update employee_code
@@ -437,7 +463,7 @@ class EmployeeController extends Controller
 
         return response()->json([
             'message' => 'Employee updated',
-            'employee' => $employee->fresh(),
+            'employee' => $employee->fresh(['grade', 'employmentType', 'workBasis']),
         ]);
     }
 

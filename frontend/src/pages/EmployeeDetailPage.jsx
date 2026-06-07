@@ -252,6 +252,49 @@ export default function EmployeeDetailPage() {
                   <Field label="Position" value={emp.position} />
                 </section>
 
+                {/* kepegawaian & payroll */}
+                <section className="space-y-4">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Employment & Payroll Info (Fase 1)
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Grade" value={emp.grade ? `${emp.grade.name} (${emp.grade.code.toUpperCase()})` : "-"} />
+                    <Field label="Employment Type" value={emp.employment_type ? emp.employment_type.name : "-"} />
+                    <Field label="Work Basis" value={emp.work_basis ? emp.work_basis.name : "-"} />
+                    <Field label="Jumlah Balita (Childcare)" value={String(emp.num_toddlers || 0)} />
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-slate-600">Trainer Category</div>
+                      <div className="mt-1">
+                        {emp.is_trainer ? (
+                          <Badge className="rounded-full border border-sky-200 bg-sky-50 text-sky-700 font-semibold px-3 py-1 text-xs">
+                            Trainer (1.5x Tunjangan Training)
+                          </Badge>
+                        ) : (
+                          <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700 font-semibold px-3 py-1 text-xs">
+                            Bukan Trainer
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-slate-600">Probation Status</div>
+                      <div className="mt-1">
+                        {emp.is_on_probation ? (
+                          <Badge className="rounded-full border border-amber-200 bg-amber-50 text-amber-700 font-semibold px-3 py-1 text-xs animate-pulse">
+                            Probation (Tunjangan Jabatan 50%)
+                          </Badge>
+                        ) : (
+                          <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700 font-semibold px-3 py-1 text-xs">
+                            Regular
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
                 {/* account */}
                 {canViewAccount && (
                   <section className="space-y-4">

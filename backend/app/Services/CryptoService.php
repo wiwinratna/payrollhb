@@ -293,6 +293,13 @@ class CryptoService
             $enc[$k . '_enc'] = self::aesGcmEncryptWithKey($val, $dek16);
         }
 
+        // Additive for new fields
+        foreach (['total_allowances', 'total_deductions'] as $k) {
+            if (array_key_exists($k, $plainFields) && $plainFields[$k] !== null) {
+                $enc[$k . '_enc'] = self::aesGcmEncryptWithKey((string)$plainFields[$k], $dek16);
+            }
+        }
+
         // 3) Bungkus DEK pakai RSA
         $ok = openssl_public_encrypt($dek16, $dekWrappedBin, $rsa->public_key_pem, OPENSSL_PKCS1_OAEP_PADDING);
         if (!$ok) throw new CryptoException('HYBRID RSA encrypt DEK failed: ' . openssl_error_string());
@@ -343,6 +350,15 @@ class CryptoService
         $out = [];
         foreach (['gaji_pokok','tunjangan','potongan','total','catatan'] as $k) {
             $out[$k] = self::aesGcmDecryptWithKey($row[$k . '_enc'] ?? null, $dek16);
+        }
+
+        // Additive for new fields
+        foreach (['total_allowances', 'total_deductions'] as $k) {
+            if (!empty($row[$k . '_enc'])) {
+                $out[$k] = self::aesGcmDecryptWithKey($row[$k . '_enc'], $dek16);
+            } else {
+                $out[$k] = null;
+            }
         }
 
         return $out;

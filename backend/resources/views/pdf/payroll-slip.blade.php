@@ -71,18 +71,41 @@
   <div class="box">
     <h3>Rincian Gaji</h3>
     <table>
-      <tr>
-        <td class="muted">Gaji Pokok</td>
-        <td class="right">{{ $rupiah($payroll->gaji_pokok) }}</td>
-      </tr>
-      <tr>
-        <td class="muted">Tunjangan</td>
-        <td class="right">{{ $rupiah($payroll->tunjangan) }}</td>
-      </tr>
-      <tr>
-        <td class="muted">Potongan</td>
-        <td class="right">{{ $rupiah($payroll->potongan) }}</td>
-      </tr>
+      @php
+        $hasBreakdown = (isset($payroll->allowances) && count($payroll->allowances) > 0) || (isset($payroll->deductions) && count($payroll->deductions) > 0);
+      @endphp
+
+      @if($hasBreakdown)
+        <tr>
+          <td class="muted">Gaji Pokok</td>
+          <td class="right">{{ $rupiah($payroll->gaji_pokok) }}</td>
+        </tr>
+        @foreach($payroll->allowances as $al)
+          <tr>
+            <td class="muted">&nbsp;&nbsp;+ {{ $al->allowanceType->name ?? 'Tunjangan' }}</td>
+            <td class="right">{{ $rupiah($al->amount) }}</td>
+          </tr>
+        @endforeach
+        @foreach($payroll->deductions as $dd)
+          <tr>
+            <td class="muted">&nbsp;&nbsp;- {{ $dd->deduction_label ?? 'Potongan' }}</td>
+            <td class="right">{{ $rupiah($dd->amount) }}</td>
+          </tr>
+        @endforeach
+      @else
+        <tr>
+          <td class="muted">Gaji Pokok</td>
+          <td class="right">{{ $rupiah($payroll->gaji_pokok) }}</td>
+        </tr>
+        <tr>
+          <td class="muted">Tunjangan</td>
+          <td class="right">{{ $rupiah($payroll->tunjangan) }}</td>
+        </tr>
+        <tr>
+          <td class="muted">Potongan</td>
+          <td class="right">{{ $rupiah($payroll->potongan) }}</td>
+        </tr>
+      @endif
     </table>
 
     <div class="line"></div>

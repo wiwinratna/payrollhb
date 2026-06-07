@@ -449,11 +449,34 @@ export default function PayrollReportPage() {
                         <TableCell className="py-4 text-right font-semibold text-slate-900">
                           {fmtRp(r.gaji_pokok)}
                         </TableCell>
-                        <TableCell className="py-4 text-right font-semibold text-slate-900">
-                          {fmtRp(r.tunjangan)}
+                        <TableCell className="py-4 text-right">
+                          <div className="font-semibold text-slate-900">
+                            {fmtRp(r.tunjangan)}
+                          </div>
+                          {r.allowances?.length > 0 && (
+                            <div className="text-[10px] text-slate-500 mt-1 text-right">
+                              {r.allowances.map((a, i) => (
+                                <div key={i}>
+                                  {a.allowance_type?.name}: {fmtRp(a.amount)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </TableCell>
-                        <TableCell className="py-4 text-right font-semibold text-slate-900">
-                          {fmtRp(r.potongan)}
+
+                        <TableCell className="py-4 text-right">
+                          <div className="font-semibold text-slate-900">
+                            {fmtRp(r.potongan)}
+                          </div>
+                          {r.deductions?.length > 0 && (
+                            <div className="text-[10px] text-slate-500 mt-1 text-right">
+                              {r.deductions.map((d, i) => (
+                                <div key={i}>
+                                  {d.deduction_label || 'Potongan'}: {fmtRp(d.amount)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="py-4 text-right font-black text-slate-900">
                           {fmtRp(r.total)}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getToken } from "../lib/auth";
 
+// helper to format dates
 function monthToFirstDate(yyyyMM) {
   if (!yyyyMM) return "";
   if (/^\d{4}-\d{2}$/.test(yyyyMM)) return `${yyyyMM}-01`;
@@ -25,17 +26,17 @@ export default function SalaryProfileCreatePage() {
     []
   );
 
-  // ===== state =====
+  const [employee, setEmployee] = useState(null);
   const [hasProfile, setHasProfile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  // bulan berlaku mulai (UI) -> nanti dikirim YYYY-MM-01
   const [effectiveMonth, setEffectiveMonth] = useState(() => todayMonth());
 
   const [form, setForm] = useState({
     base_salary: "",
     allowance_fixed: "",
     deduction_fixed: "",
+    mandays_rate: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -47,7 +48,27 @@ export default function SalaryProfileCreatePage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // ===== load current salary profile (berdasarkan bulan dipilih) =====
+  // Load employee details to find work basis
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    fetch(`${API_BASE}/api/employees/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setEmployee(data);
+      })
+      .catch((err) => console.error("Gagal load detail employee:", err));
+  }, [id, API_BASE]);
+
+  const isMandays = employee?.work_basis?.code === "mandays";
+
+  // Load current salary profile based on month
   async function loadProfile(month = effectiveMonth) {
     const token = getToken();
     setServerError("");
@@ -66,11 +87,10 @@ export default function SalaryProfileCreatePage() {
         },
       });
 
-      // 404 = belum ada profile
       if (res.status === 404) {
         setHasProfile(false);
-        setIsEditing(true); // kalau belum ada, langsung boleh isi
-        setForm({ base_salary: "", allowance_fixed: "", deduction_fixed: "" });
+        setIsEditing(true);
+        setForm({ base_salary: "", allowance_fixed: "", deduction_fixed: "", mandays_rate: "" });
         return;
       }
 
@@ -80,16 +100,15 @@ export default function SalaryProfileCreatePage() {
         return;
       }
 
-      // sukses: isi form dari profile
       setHasProfile(true);
-      setIsEditing(false); // default view-only
+      setIsEditing(false);
       setForm({
         base_salary: String(data?.base_salary ?? "0"),
         allowance_fixed: String(data?.allowance_fixed ?? "0"),
         deduction_fixed: String(data?.deduction_fixed ?? "0"),
+        mandays_rate: String(data?.mandays_rate ?? "0"),
       });
 
-      // sinkron month dari effective_from jika ada
       if (data?.effective_from && /^\d{4}-\d{2}-\d{2}$/.test(data.effective_from)) {
         setEffectiveMonth(data.effective_from.slice(0, 7));
       }
@@ -105,9 +124,7 @@ export default function SalaryProfileCreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // kalau user ganti bulan, coba load profile bulan itu
   useEffect(() => {
-    // biar gak spam pas initial render
     if (!id) return;
     loadProfile(effectiveMonth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,7 +142,8 @@ export default function SalaryProfileCreatePage() {
         base_salary: Number(form.base_salary || 0),
         allowance_fixed: Number(form.allowance_fixed || 0),
         deduction_fixed: Number(form.deduction_fixed || 0),
-        effective_from: monthToFirstDate(effectiveMonth), // ✅ always YYYY-MM-01
+        mandays_rate: isMandays ? Number(form.mandays_rate || 0) : null,
+        effective_from: monthToFirstDate(effectiveMonth),
       };
 
       const res = await fetch(`${API_BASE}/api/employees/${id}/salary-profiles`, {
@@ -163,7 +181,6 @@ export default function SalaryProfileCreatePage() {
 
   return (
     <div style={pageWrap}>
-      {/* HEADER: sesuai maumu */}
       <div style={headerBar}>
         <div>
           <h1 style={title}>Atur Profil Gaji</h1>
@@ -173,8 +190,6 @@ export default function SalaryProfileCreatePage() {
           </p>
         </div>
 
-        {/* kanan atas: kalau sudah ada -> hanya EDIT.
-           kalau belum ada -> tampil tombol SIMPAN */}
         <div style={{ display: "flex", gap: 10 }}>
           {hasProfile ? (
             <button
@@ -216,7 +231,7 @@ export default function SalaryProfileCreatePage() {
       <div style={card}>
         <div style={cardHeader}>
           <div>
-            <div style={cardTitle}>Profil Gaji</div>
+            <div style={cardTitle}>Profil Gaji {employee ? `(${employee.name})` : ""}</div>
             <div style={cardDesc}>
               Salary profile akan dipakai saat generate payroll (per bulan).
             </div>
@@ -252,6 +267,16 @@ export default function SalaryProfileCreatePage() {
                 disabled={isReadOnly}
               />
 
+              {isMandays && (
+                <Field
+                  label="Mandays Rate (Harian)"
+                  placeholder="contoh: 300000"
+                  value={form.mandays_rate}
+                  onChange={(v) => setField("mandays_rate", v)}
+                  disabled={isReadOnly}
+                />
+              )}
+
               <div>
                 <label style={label}>Berlaku Mulai (Bulan)</label>
                 <input
@@ -277,7 +302,6 @@ export default function SalaryProfileCreatePage() {
               </div>
             </div>
 
-            {/* AKSI BAWAH: sesuai maumu */}
             <div style={actionsRow}>
               <button
                 type="button"
@@ -288,16 +312,12 @@ export default function SalaryProfileCreatePage() {
                 Ke Employees
               </button>
 
-              {/* tombol simpan hanya muncul saat:
-                  - belum ada profile (create), atau
-                  - sudah ada & user klik edit (update via create record baru effective_from) */}
               {(!hasProfile || isEditing) && (
                 <button type="submit" style={btnPrimary} disabled={loading}>
                   {loading ? "Menyimpan..." : "Simpan Profil Gaji"}
                 </button>
               )}
 
-              {/* saat mode edit, kasih cancel supaya balik read-only */}
               {hasProfile && isEditing && (
                 <button
                   type="button"
@@ -307,7 +327,6 @@ export default function SalaryProfileCreatePage() {
                     setIsEditing(false);
                     setServerError("");
                     setOk("");
-                    // reload supaya balik ke nilai tersimpan
                     loadProfile(effectiveMonth);
                   }}
                 >
@@ -354,7 +373,7 @@ function formatIDR(n) {
   return `Rp ${num.toLocaleString("id-ID")}`;
 }
 
-/* ---------- Styles (nuansa payroll) ---------- */
+/* ---------- Styles ---------- */
 const pageWrap = { maxWidth: 1180, margin: "0 auto", padding: "18px 18px 28px" };
 
 const headerBar = {

@@ -17,8 +17,14 @@ function menuByRole(role) {
     return [
       { to: "/dashboard", label: "Dashboard" },
       { to: "/payrolls", label: "Payroll" },
+      { to: "/payrolls/batch", label: "Batch Payroll" }, // ✅ NEW Phase 4B
       { to: "/reports/payroll", label: "Payroll Report" }, // ✅ NEW
       { to: "/employees", label: "Employees" },
+      { to: "/projects", label: "Projects" },
+      { to: "/project-assignments", label: "Project Assignments" },
+      { to: "/schedules", label: "Schedules" },
+      { to: "/attendances", label: "Attendances" },
+      { to: "/mandays-summary", label: "Mandays Summary" },
       { to: "/my-profile", label: "My Profile" },
     ];
   }
@@ -29,6 +35,11 @@ function menuByRole(role) {
       { to: "/dashboard", label: "Dashboard" },
       { to: "/payrolls", label: "Payroll" },
       { to: "/reports/payroll", label: "Payroll Report" }, // ✅ NEW
+      { to: "/projects", label: "Projects" },
+      { to: "/project-assignments", label: "Project Assignments" },
+      { to: "/schedules", label: "Schedules" },
+      { to: "/attendances", label: "Attendances" },
+      { to: "/mandays-summary", label: "Mandays Summary" },
       { to: "/my-profile", label: "My Profile" },
     ];
   }
@@ -38,7 +49,15 @@ function menuByRole(role) {
     return [
       { to: "/dashboard", label: "Dashboard" },
       { to: "/employees", label: "Employees" },
+      { to: "/master/grades", label: "Grade Management" },
+      { to: "/master/allowance-types", label: "Allowance Types" },
+      { to: "/master/grade-rates", label: "Grade Rate Matrix" },
       { to: "/accounts/create", label: "Create Account" },
+      { to: "/projects", label: "Projects" },
+      { to: "/project-assignments", label: "Project Assignments" },
+      { to: "/schedules", label: "Schedules" },
+      { to: "/attendances", label: "Attendances" },
+      { to: "/mandays-summary", label: "Mandays Summary" },
       { to: "/my-profile", label: "My Profile" },
     ];
   }

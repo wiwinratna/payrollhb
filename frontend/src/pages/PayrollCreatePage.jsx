@@ -6,6 +6,8 @@ import {
   createPayroll,
 } from "../lib/payrollsApi";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
+import PayrollPreviewModal from "@/components/PayrollPreviewModal";
 
 function toNumber(v) {
   if (v === "" || v === null || v === undefined) return null;
@@ -53,6 +55,8 @@ export default function PayrollCreatePage() {
   const [employees, setEmployees] = useState([]);
   const [loadingEmp, setLoadingEmp] = useState(true);
 
+  const [calcMode, setCalcMode] = useState("manual"); // "manual" | "auto"
+
   const [form, setForm] = useState({
     employee_id: "",
     periode: thisMonth,
@@ -66,13 +70,16 @@ export default function PayrollCreatePage() {
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [ok, setOk] = useState("");
 
-  // ✅ Opsi 2: boleh pilih "Save draft" atau "Save & request"
-  // Default ON supaya alur approval jalan otomatis.
   const [autoRequest, setAutoRequest] = useState(true);
+
+  // Modal State
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
 
   function setField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -88,13 +95,15 @@ export default function PayrollCreatePage() {
     else if (!/^\d{4}-\d{2}$/.test(form.periode))
       e.periode = "Format periode harus YYYY-MM.";
 
-    const gp = toNumber(form.gaji_pokok);
-    const tj = toNumber(form.tunjangan);
-    const pt = toNumber(form.potongan);
+    if (calcMode === "manual") {
+      const gp = toNumber(form.gaji_pokok);
+      const tj = toNumber(form.tunjangan);
+      const pt = toNumber(form.potongan);
 
-    if (gp === null || gp < 0) e.gaji_pokok = "Gaji pokok harus angka >= 0.";
-    if (tj === null || tj < 0) e.tunjangan = "Tunjangan harus angka >= 0.";
-    if (pt === null || pt < 0) e.potongan = "Potongan harus angka >= 0.";
+      if (gp === null || gp < 0) e.gaji_pokok = "Gaji pokok harus angka >= 0.";
+      if (tj === null || tj < 0) e.tunjangan = "Tunjangan harus angka >= 0.";
+      if (pt === null || pt < 0) e.potongan = "Potongan harus angka >= 0.";
+    }
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -147,7 +156,7 @@ export default function PayrollCreatePage() {
     try {
       const data = await fetchCurrentSalaryProfile(
         form.employee_id,
-        monthToEndDate(form.periode) // ✅ pakai akhir bulan
+        monthToEndDate(form.periode)
       );
 
       setProfileInfo(data);
@@ -164,7 +173,62 @@ export default function PayrollCreatePage() {
     }
   }
 
-  async function handleSubmit(e) {
+  async function handlePreview(e) {
+    e.preventDefault();
+    if (!validate()) return;
+
+    setPreviewing(true);
+    setServerError("");
+    setOk("");
+
+    try {
+      const data = await api("/payrolls/preview-calculation", {
+        method: "POST",
+        body: {
+          employee_id: Number(form.employee_id),
+          period_month: form.periode,
+        }
+      });
+      setPreviewData(data);
+      setIsPreviewOpen(true);
+    } catch (err) {
+      const msg = err.data?.message || err.message || "Gagal preview auto calculation.";
+      setServerError(msg);
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  async function handleSaveAuto() {
+    setSaving(true);
+    setServerError("");
+    try {
+      const data = await api("/payrolls/auto", {
+        method: "POST",
+        body: {
+          employee_id: Number(form.employee_id),
+          period_month: form.periode,
+        }
+      });
+      const payrollId = data?.data?.id ?? data?.id;
+      setOk("Payroll (Auto) berhasil dibuat.");
+      setIsPreviewOpen(false);
+      
+      if (!payrollId) {
+        nav("/payrolls");
+        return;
+      }
+      nav(`/payrolls/${payrollId}`);
+    } catch (err) {
+      const msg = err.data?.message || err.message || "Gagal menyimpan auto calculation.";
+      setServerError(msg);
+      setIsPreviewOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSubmitManual(e) {
     e.preventDefault();
     if (!validate()) return;
 
@@ -181,7 +245,6 @@ export default function PayrollCreatePage() {
         potongan: toNumber(form.potongan),
         catatan: form.catatan || null,
 
-        // ✅ Opsi 2: kirim flag ke backend
         auto_request: autoRequest,
       };
 
@@ -220,7 +283,7 @@ export default function PayrollCreatePage() {
 
   return (
     <div className="relative">
-      {/* soft background selaras payroll list/edit */}
+      {/* soft background */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
         <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
@@ -242,7 +305,7 @@ export default function PayrollCreatePage() {
               Create Payroll
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Pilih employee & periode, generate dari salary profile, lalu simpan payroll.
+              Pilih mode (Manual/Auto), tentukan employee & periode, lalu buat payroll.
             </p>
           </div>
 
@@ -250,19 +313,10 @@ export default function PayrollCreatePage() {
             <Button
               variant="outline"
               onClick={() => nav(-1)}
-              disabled={saving}
+              disabled={saving || previewing}
               className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
             >
               Back
-            </Button>
-
-            <Button
-              type="submit"
-              form="create-payroll-form"
-              disabled={saving}
-              className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
-            >
-              {saving ? "Saving..." : "Save Payroll"}
             </Button>
           </div>
         </div>
@@ -279,43 +333,73 @@ export default function PayrollCreatePage() {
           </div>
         )}
 
+        {/* Mode Toggle */}
+        <div className="flex items-center gap-2 bg-white/80 p-1.5 rounded-2xl border border-slate-200 w-fit">
+          <button
+            type="button"
+            className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
+              calcMode === "manual"
+                ? "bg-slate-900 text-white shadow"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+            onClick={() => setCalcMode("manual")}
+          >
+            Manual Entry
+          </button>
+          <button
+            type="button"
+            className={`px-4 py-2 text-sm font-semibold rounded-xl transition ${
+              calcMode === "auto"
+                ? "bg-indigo-600 text-white shadow"
+                : "text-slate-600 hover:bg-slate-100"
+            }`}
+            onClick={() => setCalcMode("auto")}
+          >
+            Auto Calculation
+          </button>
+        </div>
+
         {/* Form Card */}
         <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
+          <div className="px-6 py-5 border-b border-slate-200/70 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="text-sm font-semibold text-slate-900">
-                Payroll Generator
+                {calcMode === "manual" ? "Manual Payroll" : "Auto Calculation Payroll"}
               </div>
               <div className="text-xs text-slate-500">
-                Generate otomatis dari salary profile, tetap bisa edit manual sebelum simpan.
+                {calcMode === "manual" 
+                  ? "Input gaji, tunjangan, dan potongan secara manual atau generate dari salary profile." 
+                  : "Sistem akan menghitung komponen otomatis berdasarkan absensi dan pengaturan rate."}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={loadEmployees}
-                disabled={saving}
+                disabled={saving || previewing}
                 className="rounded-2xl border-slate-200 bg-white hover:bg-slate-50"
               >
                 Refresh Employees
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGenerateFromProfile}
-                disabled={loadingProfile || saving}
-                className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
-              >
-                {loadingProfile ? "Generating..." : "Generate from Salary Profile"}
-              </Button>
+              {calcMode === "manual" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGenerateFromProfile}
+                  disabled={loadingProfile || saving}
+                  className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+                >
+                  {loadingProfile ? "Generating..." : "Generate from Salary Profile"}
+                </Button>
+              )}
             </div>
           </div>
 
           <div className="p-6">
-            <form id="create-payroll-form" onSubmit={handleSubmit} className="space-y-6">
+            <form id="create-payroll-form" onSubmit={calcMode === "manual" ? handleSubmitManual : handlePreview} className="space-y-6">
               {/* Employee + Periode */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div className="md:col-span-7">
@@ -326,7 +410,7 @@ export default function PayrollCreatePage() {
                   <select
                     value={form.employee_id}
                     onChange={(e) => setField("employee_id", e.target.value)}
-                    disabled={loadingEmp}
+                    disabled={loadingEmp || saving || previewing}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
                   >
                     <option value="">
@@ -352,11 +436,12 @@ export default function PayrollCreatePage() {
                 </div>
 
                 <div className="md:col-span-5">
-                  <label className="text-sm font-semibold text-slate-800">Periode</label>
+                  <label className="text-sm font-semibold text-slate-800">Periode (Bulan)</label>
                   <input
                     type="month"
                     value={form.periode}
                     onChange={(e) => setField("periode", e.target.value)}
+                    disabled={saving || previewing}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
                   />
                   {errors.periode && (
@@ -365,8 +450,7 @@ export default function PayrollCreatePage() {
                 </div>
               </div>
 
-              {/* Salary profile info */}
-              {profileInfo && (
+              {calcMode === "manual" && profileInfo && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-5 py-4 text-sm text-slate-700">
                   <div className="font-extrabold text-slate-900 mb-2">
                     Salary Profile (aktif)
@@ -379,97 +463,102 @@ export default function PayrollCreatePage() {
                 </div>
               )}
 
-              {/* Payroll numbers */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div className="md:col-span-4">
-                  <MoneyField
-                    label="Gaji Pokok"
-                    value={form.gaji_pokok}
-                    onChange={(v) => setField("gaji_pokok", v)}
-                    error={errors.gaji_pokok}
-                    hint={`Rp ${formatIDR(form.gaji_pokok)}`}
-                  />
-                </div>
+              {calcMode === "manual" && (
+                <>
+                  {/* Payroll numbers */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div className="md:col-span-4">
+                      <MoneyField
+                        label="Gaji Pokok"
+                        value={form.gaji_pokok}
+                        onChange={(v) => setField("gaji_pokok", v)}
+                        error={errors.gaji_pokok}
+                        hint={`Rp ${formatIDR(form.gaji_pokok)}`}
+                      />
+                    </div>
 
-                <div className="md:col-span-4">
-                  <MoneyField
-                    label="Tunjangan"
-                    value={form.tunjangan}
-                    onChange={(v) => setField("tunjangan", v)}
-                    error={errors.tunjangan}
-                    hint={`Rp ${formatIDR(form.tunjangan)}`}
-                  />
-                </div>
+                    <div className="md:col-span-4">
+                      <MoneyField
+                        label="Tunjangan"
+                        value={form.tunjangan}
+                        onChange={(v) => setField("tunjangan", v)}
+                        error={errors.tunjangan}
+                        hint={`Rp ${formatIDR(form.tunjangan)}`}
+                      />
+                    </div>
 
-                <div className="md:col-span-4">
-                  <MoneyField
-                    label="Potongan"
-                    value={form.potongan}
-                    onChange={(v) => setField("potongan", v)}
-                    error={errors.potongan}
-                    hint={`Rp ${formatIDR(form.potongan)}`}
-                  />
-                </div>
-              </div>
-
-              {/* Catatan */}
-              <div>
-                <label className="text-sm font-semibold text-slate-800">Catatan</label>
-                <textarea
-                  value={form.catatan}
-                  onChange={(e) => setField("catatan", e.target.value)}
-                  rows={4}
-                  placeholder="Opsional..."
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
-                />
-                {errors.catatan && (
-                  <div className="mt-2 text-sm text-rose-700">{errors.catatan}</div>
-                )}
-              </div>
-
-              {/* Total preview + actions */}
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <div className="text-xs text-slate-500">Total (preview)</div>
-                  <div className="text-lg font-extrabold text-slate-900">
-                    Rp {formatIDR(total)}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    Total = gaji pokok + tunjangan − potongan
+                    <div className="md:col-span-4">
+                      <MoneyField
+                        label="Potongan"
+                        value={form.potongan}
+                        onChange={(v) => setField("potongan", v)}
+                        error={errors.potongan}
+                        hint={`Rp ${formatIDR(form.potongan)}`}
+                      />
+                    </div>
                   </div>
 
-                  {/* ✅ Toggle Opsi 2 */}
-                  <label className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700 select-none">
-                    <input
-                      type="checkbox"
-                      checked={autoRequest}
-                      onChange={(e) => setAutoRequest(e.target.checked)}
-                      disabled={saving}
+                  {/* Catatan */}
+                  <div>
+                    <label className="text-sm font-semibold text-slate-800">Catatan</label>
+                    <textarea
+                      value={form.catatan}
+                      onChange={(e) => setField("catatan", e.target.value)}
+                      rows={4}
+                      placeholder="Opsional..."
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
                     />
-                    Langsung minta approval Director
-                  </label>
-                </div>
+                    {errors.catatan && (
+                      <div className="mt-2 text-sm text-rose-700">{errors.catatan}</div>
+                    )}
+                  </div>
 
-                <div className="flex gap-2 sm:justify-end">
+                  {/* Total preview + actions */}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <div className="text-xs text-slate-500">Total (preview)</div>
+                      <div className="text-lg font-extrabold text-slate-900">
+                        Rp {formatIDR(total)}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Total = gaji pokok + tunjangan − potongan
+                      </div>
+
+                      <label className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700 select-none">
+                        <input
+                          type="checkbox"
+                          checked={autoRequest}
+                          onChange={(e) => setAutoRequest(e.target.checked)}
+                          disabled={saving}
+                        />
+                        Langsung minta approval Director
+                      </label>
+                    </div>
+
+                    <div className="flex gap-2 sm:justify-end">
+                      <Button
+                        type="submit"
+                        disabled={saving}
+                        className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                      >
+                        {saving ? "Saving..." : "Save Payroll"}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {calcMode === "auto" && (
+                <div className="pt-4 flex justify-end">
                   <Button
                     type="submit"
-                    disabled={saving}
-                    className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                    disabled={previewing}
+                    className="rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-extrabold hover:brightness-110 px-8 py-3 h-auto text-base"
                   >
-                    {saving ? "Saving..." : "Save Payroll"}
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => nav("/payrolls")}
-                    disabled={saving}
-                    className="rounded-2xl border-slate-200 bg-white hover:bg-slate-50"
-                  >
-                    Cancel
+                    {previewing ? "Generating Preview..." : "Preview Calculation"}
                   </Button>
                 </div>
-              </div>
+              )}
             </form>
           </div>
         </div>
@@ -480,6 +569,15 @@ export default function PayrollCreatePage() {
           <span>Payroll Internal System</span>
         </div>
       </div>
+      
+      {/* Modal Preview Auto */}
+      <PayrollPreviewModal 
+        isOpen={isPreviewOpen} 
+        onClose={() => setIsPreviewOpen(false)} 
+        data={previewData} 
+        onSave={handleSaveAuto} 
+        isSaving={saving} 
+      />
     </div>
   );
 }

@@ -85,6 +85,7 @@ class PayrollReportController extends Controller
 
         // WAJIB ambil dek_enc + enc_meta supaya HYBRID bisa decrypt
         $payrollRows = (clone $q)
+            ->with(['allowances.allowanceType', 'deductions'])
             ->orderBy('periode')
             ->orderBy('employee_id')
             ->get([
@@ -92,14 +93,17 @@ class PayrollReportController extends Controller
 
                 // ciphertext
                 'gaji_pokok_enc','tunjangan_enc','potongan_enc','total_enc','catatan_enc',
+                'total_allowances_enc','total_deductions_enc',
 
                 // HYBRID meta
                 'dek_enc','enc_meta',
 
                 // plain optional
                 'gaji_pokok','tunjangan','potongan','total',
+                'total_allowances','total_deductions',
 
                 // meta
+                'calculation_mode','calculated_at',
                 'salary_alg',
                 'created_at',
                 'paid_at',
@@ -116,6 +120,7 @@ class PayrollReportController extends Controller
             $tDec0 = microtime(true);
 
             $gaji = $tunj = $pot = $total = null;
+            $tot_all = $tot_ded = null;
 
             try {
                 if ($alg === 'HYBRID') {
@@ -128,18 +133,24 @@ class PayrollReportController extends Controller
                         'potongan_enc'   => $p->potongan_enc,
                         'total_enc'      => $p->total_enc,
                         'catatan_enc'    => $p->catatan_enc,
+                        'total_allowances_enc' => $p->total_allowances_enc,
+                        'total_deductions_enc' => $p->total_deductions_enc,
                     ]);
 
                     $gaji  = $dec['gaji_pokok'] ?? null;
                     $tunj  = $dec['tunjangan']  ?? null;
                     $pot   = $dec['potongan']   ?? null;
                     $total = $dec['total']      ?? null;
+                    $tot_all = $dec['total_allowances'] ?? null;
+                    $tot_ded = $dec['total_deductions'] ?? null;
                 } else {
                     // AES / RSA
                     $gaji  = CryptoService::readEncryptedOrPlainSafe($p->gaji_pokok_enc, $p->gaji_pokok, $alg);
                     $tunj  = CryptoService::readEncryptedOrPlainSafe($p->tunjangan_enc,  $p->tunjangan,  $alg);
                     $pot   = CryptoService::readEncryptedOrPlainSafe($p->potongan_enc,   $p->potongan,   $alg);
                     $total = CryptoService::readEncryptedOrPlainSafe($p->total_enc,      $p->total,      $alg);
+                    $tot_all = CryptoService::readEncryptedOrPlainSafe($p->total_allowances_enc, $p->total_allowances, $alg);
+                    $tot_ded = CryptoService::readEncryptedOrPlainSafe($p->total_deductions_enc, $p->total_deductions, $alg);
                 }
             } catch (\Throwable $e) {
                 // biarkan null -> jadi 0
@@ -151,6 +162,23 @@ class PayrollReportController extends Controller
             $tunj = $tunj !== null ? (float) $tunj : 0.0;
             $pot  = $pot  !== null ? (float) $pot  : 0.0;
             $total = $total !== null ? (float) $total : ($gaji + $tunj - $pot);
+            $tot_all = $tot_all !== null ? (float) $tot_all : null;
+            $tot_ded = $tot_ded !== null ? (float) $tot_ded : null;
+
+            foreach ($p->allowances as $al) {
+                if ($al->amount_enc) {
+                    $al->amount = (float) CryptoService::readEncryptedOrPlainSafe($al->amount_enc, $al->amount, $al->salary_alg ?? 'AES');
+                } else if ($al->amount !== null) {
+                    $al->amount = (float) $al->amount;
+                }
+            }
+            foreach ($p->deductions as $dd) {
+                if ($dd->amount_enc) {
+                    $dd->amount = (float) CryptoService::readEncryptedOrPlainSafe($dd->amount_enc, $dd->amount, $dd->salary_alg ?? 'AES');
+                } else if ($dd->amount !== null) {
+                    $dd->amount = (float) $dd->amount;
+                }
+            }
 
             return [
                 'id' => $p->id,
@@ -165,6 +193,14 @@ class PayrollReportController extends Controller
                 'tunjangan'  => $tunj,
                 'potongan'   => $pot,
                 'total'      => $total,
+
+                'total_allowances' => $tot_all,
+                'total_deductions' => $tot_ded,
+                'calculation_mode' => $p->calculation_mode,
+                'calculated_at'    => $p->calculated_at,
+
+                'allowances' => $p->allowances,
+                'deductions' => $p->deductions,
 
                 'salary_alg' => $p->salary_alg,
                 'paid_at' => optional($p->paid_at)->toISOString(),

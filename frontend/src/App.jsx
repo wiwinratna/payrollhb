@@ -15,6 +15,7 @@ import PayrollList from "./pages/PayrollList";
 import PayrollCreatePage from "./pages/PayrollCreatePage";
 import PayrollDetailPage from "./pages/PayrollDetailPage";
 import PayrollEditPage from "./pages/PayrollEditPage";
+import PayrollBatchPage from "./pages/PayrollBatchPage";
 
 import EmployeesPage from "./pages/EmployeesPage";
 import EmployeeCreatePage from "./pages/EmployeeCreatePage";
@@ -27,6 +28,18 @@ import AccountCreatePage from "./pages/AccountCreatePage";
 
 // ✅ NEW: laporan payroll
 import PayrollReportPage from "./pages/PayrollReportPage";
+
+// Master data pages (Phase 1)
+import GradeManagementPage from "./pages/GradeManagementPage";
+import AllowanceTypePage from "./pages/AllowanceTypePage";
+import GradeRatePage from "./pages/GradeRatePage";
+
+// Phase 3 UI
+import ProjectsPage from "./pages/ProjectsPage";
+import ProjectAssignmentsPage from "./pages/ProjectAssignmentsPage";
+import SchedulesPage from "./pages/SchedulesPage";
+import AttendancesPage from "./pages/AttendancesPage";
+import MandaysSummaryPage from "./pages/MandaysSummaryPage";
 
 function getHomePath(user) {
   const role = String(user?.role || "").toLowerCase();
@@ -101,8 +114,14 @@ export default function App() {
               </RoleRoute>
             }
           />
-
-          {/* PAYROLL CREATE/EDIT: FAT saja */}
+          <Route
+            path="/payrolls/batch"
+            element={
+              <RoleRoute allow={["fat"]}>
+                <PayrollBatchPage />
+              </RoleRoute>
+            }
+          />
           <Route
             path="/payrolls/new"
             element={
@@ -174,12 +193,80 @@ export default function App() {
             }
           />
 
+          {/* MASTER DATA (Phase 1) */}
+          <Route
+            path="/master/grades"
+            element={
+              <RoleRoute allow={["hcga"]}>
+                <GradeManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/master/allowance-types"
+            element={
+              <RoleRoute allow={["hcga"]}>
+                <AllowanceTypePage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/master/grade-rates"
+            element={
+              <RoleRoute allow={["hcga"]}>
+                <GradeRatePage />
+              </RoleRoute>
+            }
+          />
+
           {/* CREATE ACCOUNT: HCGA saja */}
           <Route
             path="/accounts/create"
             element={
               <RoleRoute allow={["hcga"]}>
                 <AccountCreatePage />
+              </RoleRoute>
+            }
+          />
+
+          {/* PHASE 3 UI */}
+          <Route
+            path="/projects"
+            element={
+              <RoleRoute allow={["hcga", "fat", "director"]}>
+                <ProjectsPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/project-assignments"
+            element={
+              <RoleRoute allow={["hcga", "fat", "director"]}>
+                <ProjectAssignmentsPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/schedules"
+            element={
+              <RoleRoute allow={["hcga", "fat", "director"]}>
+                <SchedulesPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/attendances"
+            element={
+              <RoleRoute allow={["hcga", "fat", "director"]}>
+                <AttendancesPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/mandays-summary"
+            element={
+              <RoleRoute allow={["hcga", "fat", "director"]}>
+                <MandaysSummaryPage />
               </RoleRoute>
             }
           />

@@ -33,7 +33,36 @@ class Employee extends Model
         // metadata
         'pii_alg',
         'pii_key_id',
+
+        // Phase 1 fields
+        'grade_id',
+        'employment_type_id',
+        'work_basis_id',
+        'num_toddlers',
+        'is_trainer',
+        'is_on_probation',
     ];
+
+    protected $casts = [
+        'num_toddlers' => 'integer',
+        'is_trainer' => 'boolean',
+        'is_on_probation' => 'boolean',
+    ];
+
+    public function grade()
+    {
+        return $this->belongsTo(Grade::class, 'grade_id');
+    }
+
+    public function employmentType()
+    {
+        return $this->belongsTo(EmploymentType::class, 'employment_type_id');
+    }
+
+    public function workBasis()
+    {
+        return $this->belongsTo(WorkBasis::class, 'work_basis_id');
+    }
 
     public function payrolls()
     {
@@ -58,5 +87,25 @@ class Employee extends Model
             ->where('effective_from', '<=', $date)
             ->orderByDesc('effective_from')
             ->first();
+    }
+
+    public function projectAssignments()
+    {
+        return $this->hasMany(ProjectAssignment::class);
+    }
+
+    public function schedules()
+    {
+        return $this->hasMany(Schedule::class);
+    }
+
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function monthlyMandaysSummaries()
+    {
+        return $this->hasMany(MonthlyMandaysSummary::class);
     }
 }

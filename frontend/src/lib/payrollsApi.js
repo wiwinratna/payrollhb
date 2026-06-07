@@ -196,3 +196,64 @@ export async function deletePayroll(payrollId) {
 
   return data ?? { ok: true };
 }
+
+export async function previewCalculation(payload) {
+  const res = await fetch(`${API_BASE}/api/payrolls/preview-calculation`, {
+    method: "POST",
+    headers: authHeaders({ json: true }),
+    body: JSON.stringify(payload),
+  });
+  if (res.status === 401) handle401();
+  const data = await readJson(res);
+  if (!res.ok) throw buildApiError(res, data, `Gagal memuat preview calculation (${res.status}).`);
+  return data ?? null;
+}
+
+export async function autoCalculate(payload) {
+  const res = await fetch(`${API_BASE}/api/payrolls/auto`, {
+    method: "POST",
+    headers: authHeaders({ json: true }),
+    body: JSON.stringify(payload),
+  });
+  if (res.status === 401) handle401();
+  const data = await readJson(res);
+  if (!res.ok) throw buildApiError(res, data, `Gagal kalkulasi otomatis (${res.status}).`);
+  return data ?? null;
+}
+
+export async function batchGenerate(payload) {
+  const res = await fetch(`${API_BASE}/api/payrolls/batch-generate`, {
+    method: "POST",
+    headers: authHeaders({ json: true }),
+    body: JSON.stringify(payload),
+  });
+  if (res.status === 401) handle401();
+  const data = await readJson(res);
+  if (!res.ok) throw buildApiError(res, data, `Gagal batch generate (${res.status}).`);
+  return data ?? null;
+}
+
+export async function recalculatePayroll(id, payload = {}) {
+  const res = await fetch(`${API_BASE}/api/payrolls/${id}/recalculate`, {
+    method: "POST",
+    headers: authHeaders({ json: true }),
+    body: JSON.stringify(payload),
+  });
+  if (res.status === 401) handle401();
+  const data = await readJson(res);
+  if (!res.ok) throw buildApiError(res, data, `Gagal recalculate (${res.status}).`);
+  return data ?? null;
+}
+
+export async function overrideAllowance(payrollId, allowanceId, payload) {
+  const res = await fetch(`${API_BASE}/api/payrolls/${payrollId}/allowances/${allowanceId}`, {
+    method: "PATCH",
+    headers: authHeaders({ json: true }),
+    body: JSON.stringify(payload),
+  });
+  if (res.status === 401) handle401();
+  const data = await readJson(res);
+  if (!res.ok) throw buildApiError(res, data, `Gagal override allowance (${res.status}).`);
+  return data ?? null;
+}
+

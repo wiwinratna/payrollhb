@@ -16,6 +16,7 @@ class SalaryProfile extends Model
         'daily_rate',
         'overtime_rate_per_hour',
         'late_penalty_per_minute',
+        'mandays_rate',
 
         // ciphertext
         'base_salary_enc',
@@ -24,6 +25,7 @@ class SalaryProfile extends Model
         'daily_rate_enc',
         'overtime_rate_per_hour_enc',
         'late_penalty_per_minute_enc',
+        'mandays_rate_enc',
 
         'effective_from',
 

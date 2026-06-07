@@ -152,6 +152,8 @@ class PayrollController extends Controller
         $payroll->load([
             'user:id,name',
             'employee:id,user_id,employee_code,name,status',
+            'allowances.allowanceType',
+            'deductions',
         ]);
 
         $db_ms = (hrtime(true) - $t0_db) / 1e6;
@@ -162,6 +164,7 @@ class PayrollController extends Controller
 
         $gaji = $tunj = $pot = $total = null;
         $cat  = null;
+        $tot_all = $tot_ded = null;
 
         $dec_ms = null;
 
@@ -180,6 +183,8 @@ class PayrollController extends Controller
                         'potongan_enc'   => $payroll->potongan_enc,
                         'total_enc'      => $payroll->total_enc,
                         'catatan_enc'    => $payroll->catatan_enc,
+                        'total_allowances_enc' => $payroll->total_allowances_enc,
+                        'total_deductions_enc' => $payroll->total_deductions_enc,
                     ]);
 
                     $gaji  = $plain['gaji_pokok'] ?? null;
@@ -187,6 +192,8 @@ class PayrollController extends Controller
                     $pot   = $plain['potongan']   ?? null;
                     $total = $plain['total']      ?? null;
                     $cat   = $plain['catatan']    ?? null;
+                    $tot_all = $plain['total_allowances'] ?? null;
+                    $tot_ded = $plain['total_deductions'] ?? null;
                 } else {
                     // ✅ AES / RSA
                     $gaji  = CryptoService::readEncryptedOrPlain($payroll->gaji_pokok_enc, $payroll->gaji_pokok, $alg);
@@ -194,6 +201,8 @@ class PayrollController extends Controller
                     $pot   = CryptoService::readEncryptedOrPlain($payroll->potongan_enc,   $payroll->potongan,   $alg);
                     $total = CryptoService::readEncryptedOrPlain($payroll->total_enc,      $payroll->total,      $alg);
                     $cat   = CryptoService::readEncryptedOrPlain($payroll->catatan_enc,    $payroll->catatan,    $alg);
+                    $tot_all = CryptoService::readEncryptedOrPlainSafe($payroll->total_allowances_enc, $payroll->total_allowances, $alg);
+                    $tot_ded = CryptoService::readEncryptedOrPlainSafe($payroll->total_deductions_enc, $payroll->total_deductions, $alg);
                 }
 
                 // nominal jadi float (catatan tetap string)
@@ -201,6 +210,23 @@ class PayrollController extends Controller
                 $tunj  = $tunj  !== null ? (float) $tunj : null;
                 $pot   = $pot   !== null ? (float) $pot  : null;
                 $total = $total !== null ? (float) $total : null;
+                $tot_all = $tot_all !== null ? (float) $tot_all : null;
+                $tot_ded = $tot_ded !== null ? (float) $tot_ded : null;
+
+                foreach ($payroll->allowances as $al) {
+                    if ($al->amount_enc) {
+                        $al->amount = (float) CryptoService::readEncryptedOrPlainSafe($al->amount_enc, $al->amount, $al->salary_alg ?? 'AES');
+                    } else if ($al->amount !== null) {
+                        $al->amount = (float) $al->amount;
+                    }
+                }
+                foreach ($payroll->deductions as $dd) {
+                    if ($dd->amount_enc) {
+                        $dd->amount = (float) CryptoService::readEncryptedOrPlainSafe($dd->amount_enc, $dd->amount, $dd->salary_alg ?? 'AES');
+                    } else if ($dd->amount !== null) {
+                        $dd->amount = (float) $dd->amount;
+                    }
+                }
 
                 $dec_ms = (hrtime(true) - $t0_dec) / 1e6;
             } catch (\Throwable $e) {
@@ -273,6 +299,14 @@ class PayrollController extends Controller
             'total'      => $total,
             'catatan'    => $cat,
 
+            'total_allowances' => $tot_all,
+            'total_deductions' => $tot_ded,
+            'calculation_mode' => $payroll->calculation_mode,
+            'calculated_at'    => $payroll->calculated_at,
+
+            'allowances' => $canSeeNominal ? $payroll->allowances : [],
+            'deductions' => $canSeeNominal ? $payroll->deductions : [],
+
             'masked' => !$canSeeNominal,
 
             'created_at' => optional($payroll->created_at)->toDateTimeString(),
@@ -290,6 +324,8 @@ class PayrollController extends Controller
         $payroll->load([
             'user:id,name',
             'employee:id,user_id,employee_code,name,status',
+            'allowances.allowanceType',
+            'deductions',
         ]);
 
         $user = $request->user();
@@ -313,6 +349,8 @@ class PayrollController extends Controller
                     'potongan_enc'   => $payroll->potongan_enc,
                     'total_enc'      => $payroll->total_enc,
                     'catatan_enc'    => $payroll->catatan_enc,
+                    'total_allowances_enc' => $payroll->total_allowances_enc,
+                    'total_deductions_enc' => $payroll->total_deductions_enc,
                 ]);
 
                 $payroll->gaji_pokok = $plain['gaji_pokok'] ?? null;
@@ -320,12 +358,16 @@ class PayrollController extends Controller
                 $payroll->potongan   = $plain['potongan'] ?? null;
                 $payroll->total      = $plain['total'] ?? null;
                 $payroll->catatan    = $plain['catatan'] ?? null;
+                $payroll->total_allowances = $plain['total_allowances'] ?? null;
+                $payroll->total_deductions = $plain['total_deductions'] ?? null;
             } else {
                 $payroll->gaji_pokok = CryptoService::readEncryptedOrPlain($payroll->gaji_pokok_enc, $payroll->gaji_pokok, $alg);
                 $payroll->tunjangan  = CryptoService::readEncryptedOrPlain($payroll->tunjangan_enc,  $payroll->tunjangan,  $alg);
                 $payroll->potongan   = CryptoService::readEncryptedOrPlain($payroll->potongan_enc,   $payroll->potongan,   $alg);
                 $payroll->total      = CryptoService::readEncryptedOrPlain($payroll->total_enc,      $payroll->total,      $alg);
                 $payroll->catatan    = CryptoService::readEncryptedOrPlain($payroll->catatan_enc,    $payroll->catatan,    $alg);
+                $payroll->total_allowances = CryptoService::readEncryptedOrPlainSafe($payroll->total_allowances_enc, $payroll->total_allowances, $alg);
+                $payroll->total_deductions = CryptoService::readEncryptedOrPlainSafe($payroll->total_deductions_enc, $payroll->total_deductions, $alg);
             }
         } catch (\Throwable $e) {
             return response()->json([
@@ -337,6 +379,24 @@ class PayrollController extends Controller
         $payroll->gaji_pokok = $payroll->gaji_pokok !== null ? (float) $payroll->gaji_pokok : 0;
         $payroll->tunjangan  = $payroll->tunjangan  !== null ? (float) $payroll->tunjangan  : 0;
         $payroll->potongan   = $payroll->potongan   !== null ? (float) $payroll->potongan   : 0;
+
+        $payroll->total_allowances = $payroll->total_allowances !== null ? (float) $payroll->total_allowances : null;
+        $payroll->total_deductions = $payroll->total_deductions !== null ? (float) $payroll->total_deductions : null;
+
+        foreach ($payroll->allowances as $al) {
+            if ($al->amount_enc) {
+                $al->amount = (float) CryptoService::readEncryptedOrPlainSafe($al->amount_enc, $al->amount, $al->salary_alg ?? 'AES');
+            } else if ($al->amount !== null) {
+                $al->amount = (float) $al->amount;
+            }
+        }
+        foreach ($payroll->deductions as $dd) {
+            if ($dd->amount_enc) {
+                $dd->amount = (float) CryptoService::readEncryptedOrPlainSafe($dd->amount_enc, $dd->amount, $dd->salary_alg ?? 'AES');
+            } else if ($dd->amount !== null) {
+                $dd->amount = (float) $dd->amount;
+            }
+        }
 
         $payroll->total = $payroll->total !== null
             ? (float) $payroll->total

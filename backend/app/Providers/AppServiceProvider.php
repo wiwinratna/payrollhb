@@ -17,6 +17,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Payroll::class, PayrollPolicy::class);
+
+        \App\Models\Attendance::observe(\App\Observers\AttendanceObserver::class);
+        \App\Models\ProjectAssignment::observe(\App\Observers\ProjectAssignmentObserver::class);
     }
 
 }

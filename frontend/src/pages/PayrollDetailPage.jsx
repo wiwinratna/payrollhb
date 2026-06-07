@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { fetchPayrollDetail } from "@/lib/payrollsApi";
-import { getToken } from "@/lib/auth";
+import { getToken, getUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api";
+
+import OverrideAllowanceModal from "@/components/OverrideAllowanceModal";
+import RecalculateConfirmModal from "@/components/RecalculateConfirmModal";
 
 function formatIDR(n) {
   const num = Number(n ?? 0);
@@ -72,6 +76,8 @@ function InfoItem({ label, value }) {
 export default function PayrollDetailPage() {
   const { id } = useParams();
   const nav = useNavigate();
+  const user = getUser();
+  const isFat = user?.role?.toLowerCase() === "fat";
 
   const [row, setRow] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,6 +85,12 @@ export default function PayrollDetailPage() {
 
   const [pdfLoading, setPdfLoading] = useState(false);
   const [proofLoading, setProofLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Modals state
+  const [overrideData, setOverrideData] = useState(null);
+  const [recalcOpen, setRecalcOpen] = useState(false);
+  const [recalcMsg, setRecalcMsg] = useState("");
 
   const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
@@ -126,7 +138,6 @@ export default function PayrollDetailPage() {
     }
   };
 
-  // ✅ buka bukti transfer via fetch + token (paling aman)
   const openProof = async (payrollId) => {
     try {
       setProofLoading(true);
@@ -134,7 +145,6 @@ export default function PayrollDetailPage() {
       const token = getToken();
       if (!token) throw new Error("Token login tidak ditemukan. Silakan login ulang.");
 
-      // buka tab dulu supaya popup tidak diblok
       const newTab = window.open("", "_blank", "noopener,noreferrer");
 
       const res = await fetch(`${API_BASE}/api/payrolls/${payrollId}/proof`, {
@@ -147,7 +157,6 @@ export default function PayrollDetailPage() {
       if (!res.ok) {
         if (newTab) newTab.close();
 
-        // biasanya backend kirim JSON {message: "..."}
         let msg = `HTTP ${res.status}`;
         try {
           const j = await res.json();
@@ -171,19 +180,18 @@ export default function PayrollDetailPage() {
     }
   };
 
-  useEffect(() => {
-    let mounted = true;
+  const loadDetail = () => {
     setLoading(true);
     setErr("");
-
     fetchPayrollDetail(id)
-      .then((data) => mounted && setRow(data?.data ?? data))
-      .catch((e) => mounted && setErr(e?.message || "Gagal memuat detail."))
-      .finally(() => mounted && setLoading(false));
+      .then((data) => setRow(data?.data ?? data))
+      .catch((e) => setErr(e?.message || "Gagal memuat detail."))
+      .finally(() => setLoading(false));
+  };
 
-    return () => {
-      mounted = false;
-    };
+  useEffect(() => {
+    loadDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const periodeLabel = useMemo(
@@ -204,10 +212,53 @@ export default function PayrollDetailPage() {
     () => String(row?.status || "").toLowerCase() === "paid",
     [row?.status]
   );
+  
+  const canOverrideOrRecalculate = useMemo(() => {
+    return isFat && row?.status === "draft" && row?.calculation_mode === "auto";
+  }, [isFat, row]);
+
+  const handleSaveOverride = async (payload) => {
+    if (!overrideData) return;
+    setIsSaving(true);
+    try {
+      await api(`/payrolls/${id}/allowances/${overrideData.id}`, {
+        method: "PATCH",
+        body: payload
+      });
+      setOverrideData(null);
+      loadDetail();
+    } catch (e) {
+      alert(e?.data?.message || "Gagal override allowance");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRecalculate = async (force = false) => {
+    setIsSaving(true);
+    try {
+      await api(`/payrolls/${id}/recalculate`, {
+        method: "POST",
+        body: { force }
+      });
+      setRecalcOpen(false);
+      loadDetail();
+    } catch (e) {
+      const status = e?.status;
+      const msg = e?.data?.message || "Gagal recalculate";
+      if (status === 422 && msg.toLowerCase().includes("manual override")) {
+        setRecalcMsg(msg);
+        setRecalcOpen(true);
+      } else {
+        alert(msg);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="relative">
-      {/* Soft background */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
         <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
@@ -215,7 +266,6 @@ export default function PayrollDetailPage() {
       </div>
 
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
@@ -237,6 +287,12 @@ export default function PayrollDetailPage() {
                   PAID
                 </Badge>
               )}
+              
+              {!loading && row && row.calculation_mode === "auto" && (
+                <Badge className="rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700">
+                  AUTO CALC
+                </Badge>
+              )}
             </div>
 
             <p className="mt-1 text-sm text-slate-600">
@@ -255,8 +311,18 @@ export default function PayrollDetailPage() {
             >
               Kembali
             </Button>
+            
+            {canOverrideOrRecalculate && (
+              <Button
+                variant="outline"
+                onClick={() => handleRecalculate(false)}
+                disabled={isSaving}
+                className="rounded-2xl bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+              >
+                {isSaving ? "Processing..." : "Recalculate"}
+              </Button>
+            )}
 
-            {/* PDF */}
             <Button
               variant="outline"
               onClick={() => row?.id && openPayrollPdf(row.id)}
@@ -267,7 +333,6 @@ export default function PayrollDetailPage() {
               {pdfLoading ? "Membuka PDF..." : "Buka PDF (Print)"}
             </Button>
 
-            {/* ✅ Bukti Transfer (hanya muncul kalau PAID) */}
             {row?.id && isPaid && (
               <Button
                 variant="outline"
@@ -282,14 +347,12 @@ export default function PayrollDetailPage() {
           </div>
         </div>
 
-        {/* Loading */}
         {loading && (
           <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] px-6 py-6 text-sm text-slate-500">
             Loading slip gaji...
           </div>
         )}
 
-        {/* Error */}
         {!loading && err && (
           <div className="rounded-3xl border border-rose-200 bg-rose-50 px-6 py-5 text-sm text-rose-700">
             <div className="font-bold text-rose-800 mb-1">Gagal memuat data</div>
@@ -297,10 +360,8 @@ export default function PayrollDetailPage() {
           </div>
         )}
 
-        {/* Content */}
         {!loading && !err && row && (
           <div className="space-y-6">
-            {/* Informasi Karyawan */}
             <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
               <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
                 <div>
@@ -355,7 +416,6 @@ export default function PayrollDetailPage() {
               </div>
             </div>
 
-            {/* Rincian Gaji */}
             <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
               <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
                 <div>
@@ -387,25 +447,69 @@ export default function PayrollDetailPage() {
                   <div className="overflow-hidden rounded-2xl border border-slate-200">
                     <div className="grid grid-cols-1 divide-y divide-slate-200">
                       <div className="flex items-center justify-between px-5 py-4 bg-white">
-                        <span className="text-sm text-slate-600">Gaji Pokok</span>
-                        <span className="text-sm font-semibold text-slate-900">
-                          {formatIDR(row.gaji_pokok)}
-                        </span>
+                         <span className="text-sm text-slate-600">Gaji Pokok</span>
+                         <span className="text-sm font-semibold text-slate-900">
+                           {formatIDR(row.gaji_pokok)}
+                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between px-5 py-4 bg-white/80">
-                        <span className="text-sm text-slate-600">Tunjangan</span>
-                        <span className="text-sm font-semibold text-slate-900">
-                          {formatIDR(row.tunjangan)}
-                        </span>
-                      </div>
+                      {(row?.allowances?.length > 0 || row?.deductions?.length > 0) ? (
+                        <>
+                          {row.allowances?.map((al, idx) => (
+                            <div key={`al-${idx}`} className="flex items-center justify-between px-5 py-4 bg-white/80 group hover:bg-slate-50 transition">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-emerald-600">+ {al.allowance_type?.name || al.allowance_type || 'Tunjangan'}</span>
+                                  {al.is_manual_override && (
+                                    <Badge variant="outline" className="text-[10px] bg-yellow-100 text-yellow-800 border-yellow-200 px-1.5 py-0.5">
+                                      Manual Override
+                                    </Badge>
+                                  )}
+                                  {canOverrideOrRecalculate && (
+                                    <button
+                                      onClick={() => setOverrideData(al)}
+                                      className="ml-2 text-slate-400 hover:text-sky-600 opacity-0 group-hover:opacity-100 transition"
+                                      title="Override Allowance"
+                                    >
+                                      ✎ Edit
+                                    </button>
+                                  )}
+                                </div>
+                                {al.override_reason && (
+                                  <span className="text-xs text-slate-500 italic">Alasan: {al.override_reason}</span>
+                                )}
+                              </div>
+                              <span className="text-sm font-semibold text-slate-900">
+                                {formatIDR(al.amount)}
+                              </span>
+                            </div>
+                          ))}
+                          {row.deductions?.map((dd, idx) => (
+                            <div key={`dd-${idx}`} className="flex items-center justify-between px-5 py-4 bg-white">
+                              <span className="text-sm text-rose-600">- {dd.deduction_label || 'Potongan'}</span>
+                              <span className="text-sm font-semibold text-slate-900">
+                                {formatIDR(dd.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between px-5 py-4 bg-white/80">
+                            <span className="text-sm text-slate-600">Tunjangan</span>
+                            <span className="text-sm font-semibold text-slate-900">
+                              {formatIDR(row.tunjangan)}
+                            </span>
+                          </div>
 
-                      <div className="flex items-center justify-between px-5 py-4 bg-white">
-                        <span className="text-sm text-slate-600">Potongan</span>
-                        <span className="text-sm font-semibold text-slate-900">
-                          {formatIDR(row.potongan)}
-                        </span>
-                      </div>
+                          <div className="flex items-center justify-between px-5 py-4 bg-white">
+                            <span className="text-sm text-slate-600">Potongan</span>
+                            <span className="text-sm font-semibold text-slate-900">
+                              {formatIDR(row.potongan)}
+                            </span>
+                          </div>
+                        </>
+                      )}
 
                       <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-sky-50 to-indigo-50">
                         <span className="text-sm font-extrabold text-slate-900">
@@ -435,6 +539,22 @@ export default function PayrollDetailPage() {
           </div>
         )}
       </div>
+
+      <OverrideAllowanceModal
+        isOpen={!!overrideData}
+        onClose={() => setOverrideData(null)}
+        data={overrideData}
+        onSave={handleSaveOverride}
+        isSaving={isSaving}
+      />
+
+      <RecalculateConfirmModal
+        isOpen={recalcOpen}
+        onClose={() => setRecalcOpen(false)}
+        message={recalcMsg}
+        onConfirm={(force) => handleRecalculate(force)}
+        isSaving={isSaving}
+      />
     </div>
   );
 }

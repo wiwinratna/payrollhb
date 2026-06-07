@@ -9,12 +9,14 @@ use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\PayrollReportController;
+use App\Http\Controllers\Api\GradeController;
+use App\Http\Controllers\Api\EmploymentTypeController;
+use App\Http\Controllers\Api\WorkBasisController;
+use App\Http\Controllers\Api\AllowanceTypeController;
+use App\Http\Controllers\Api\GradeAllowanceRateController;
 
-/*
-|--------------------------------------------------------------------------
-| AUTH (PUBLIC)
-|--------------------------------------------------------------------------
-*/
+
+
 Route::post('/login', [AuthController::class, 'login']);
 
 // Kalau mau staff bisa register dari halaman login, aktifkan ini:
@@ -43,6 +45,16 @@ Route::middleware('auth:sanctum')->group(function () {
     | PAYROLL
     |--------------------------------------------------------------------------
     */
+    // Phase 4 Routes (Placed ABOVE resource / dynamic param routes)
+    // Phase 4 Routes (Placed ABOVE resource / dynamic param routes)
+    Route::post('/payrolls/preview-calculation', [\App\Http\Controllers\Api\PayrollCalculationController::class, 'previewCalculation']);
+    Route::post('/payrolls/auto', [\App\Http\Controllers\Api\PayrollCalculationController::class, 'autoCalculate']);
+    Route::post('/payrolls/batch-generate', [\App\Http\Controllers\Api\PayrollCalculationController::class, 'batchGenerate']);
+    
+    // Phase 4 Specific Item Routes
+    Route::post('/payrolls/{payroll}/recalculate', [\App\Http\Controllers\Api\PayrollCalculationController::class, 'recalculate']);
+    Route::patch('/payrolls/{payroll}/allowances/{allowance}', [\App\Http\Controllers\Api\PayrollCalculationController::class, 'overrideAllowance']);
+
     Route::get('/payrolls', [PayrollController::class, 'index']);
     Route::post('/payrolls', [PayrollController::class, 'store']);
 
@@ -104,4 +116,32 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me/employee', [MeController::class, 'employee']);
     Route::put('/me/employee', [MeController::class, 'updateEmployee']);
 
+    /*
+    |--------------------------------------------------------------------------
+    | MASTER DATA (Phase 1)
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('master')->group(function () {
+        Route::apiResource('grades', GradeController::class);
+        Route::get('employment-types', [EmploymentTypeController::class, 'index']);
+        Route::get('work-bases', [WorkBasisController::class, 'index']);
+        Route::apiResource('allowance-types', AllowanceTypeController::class);
+        Route::apiResource('grade-allowance-rates', GradeAllowanceRateController::class);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | PHASE 3: ATTENDANCE, SCHEDULE, PROJECT ASSIGNMENT, MANDAYS SUMMARY
+    |--------------------------------------------------------------------------
+    */
+    Route::apiResource('projects', \App\Http\Controllers\Api\ProjectController::class);
+    Route::apiResource('project-assignments', \App\Http\Controllers\Api\ProjectAssignmentController::class);
+    Route::apiResource('schedules', \App\Http\Controllers\Api\ScheduleController::class);
+    Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
+
+    Route::get('/mandays-summaries', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'index']);
+    Route::get('/mandays-summaries/{mandaysSummary}', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'show']);
+    Route::post('/mandays-summaries/recalculate', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'recalculate']);
+    Route::post('/mandays-summaries/{mandaysSummary}/finalize', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'finalize']);
+    Route::post('/mandays-summaries/{mandaysSummary}/unfinalize', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'unfinalize']);
 });
