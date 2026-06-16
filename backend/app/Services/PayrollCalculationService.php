@@ -29,10 +29,29 @@ class PayrollCalculationService
         
         if (!$profile) return ['status' => false, 'error' => 'Salary profile aktif tidak ditemukan.'];
         
+        $activeGradeId = $profile->grade_id ?? $employee->grade_id;
+        $grade = $activeGradeId ? \App\Models\Grade::find($activeGradeId) : null;
+
         $isMandays = $employee->workBasis->code === 'mandays';
-        // Profile decrypt
+
+        // Profile decrypt and fallback
         $salaryDecrypted = CryptoService::decryptAESGCM($profile->base_salary_enc);
+        if ($salaryDecrypted === null || $salaryDecrypted === '') {
+            if ($profile->base_salary > 0) {
+                $salaryDecrypted = (string)$profile->base_salary;
+            } else {
+                $salaryDecrypted = $grade ? (string)$grade->default_base_salary : '0';
+            }
+        }
+
         $mandaysDecrypted = $profile->mandays_rate_enc ? CryptoService::decryptAESGCM($profile->mandays_rate_enc) : null;
+        if ($mandaysDecrypted === null || $mandaysDecrypted === '') {
+            if ($profile->mandays_rate !== null) {
+                $mandaysDecrypted = (string)$profile->mandays_rate;
+            } else {
+                $mandaysDecrypted = $grade ? (string)$grade->default_mandays_rate : null;
+            }
+        }
         
         if ($isMandays && empty($mandaysDecrypted)) {
             return ['status' => false, 'error' => 'Mandays rate kosong untuk basis mandays.'];
@@ -54,7 +73,8 @@ class PayrollCalculationService
             'status' => true,
             'profile' => [
                 'base_salary' => $salaryDecrypted,
-                'mandays_rate' => $mandaysDecrypted
+                'mandays_rate' => $mandaysDecrypted,
+                'grade_id' => $activeGradeId
             ],
             'summary' => $summary,
             'periodFrom' => $start->toDateString(),
@@ -95,6 +115,7 @@ class PayrollCalculationService
         
         $mandaysRate = (float)$profile['mandays_rate'];
         $baseSalary = (float)$profile['base_salary'];
+        $activeGradeId = $profile['grade_id'];
 
         if ($isProject && $isMandays) {
             $gaji_pokok = $mandaysRate * $summary->total_mandays;
@@ -105,10 +126,10 @@ class PayrollCalculationService
         $allowances = [];
         $total_allowances = 0;
 
-        $getRate = function($typeCode) use ($employee) {
+        $getRate = function($typeCode) use ($employee, $activeGradeId) {
             $type = AllowanceType::where('code', $typeCode)->first();
             if (!$type) return null;
-            $rate = GradeAllowanceRate::where('grade_id', $employee->grade_id)
+            $rate = GradeAllowanceRate::where('grade_id', $activeGradeId)
                 ->where('allowance_type_id', $type->id)
                 ->first();
             return [

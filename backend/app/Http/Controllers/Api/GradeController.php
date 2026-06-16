@@ -51,6 +51,8 @@ class GradeController extends Controller
             'level' => ['required', 'integer', 'min:1'],
             'description' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
+            'default_base_salary' => ['nullable', 'numeric', 'min:0'],
+            'default_mandays_rate' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $grade = Grade::create($data);
@@ -70,6 +72,8 @@ class GradeController extends Controller
             'level' => ['sometimes', 'required', 'integer', 'min:1'],
             'description' => ['nullable', 'string'],
             'is_active' => ['sometimes', 'required', 'boolean'],
+            'default_base_salary' => ['nullable', 'numeric', 'min:0'],
+            'default_mandays_rate' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $grade->update($data);

@@ -237,17 +237,56 @@ class EmployeeController extends Controller
 
         $alg = strtoupper((string) ($profile->salary_alg ?? 'AES'));
 
-        $base  = $profile->base_salary_enc ? (float) CryptoService::decryptByAlg($profile->base_salary_enc, $alg) : (float) $profile->base_salary;
+        $baseVal = $profile->base_salary_enc ? CryptoService::decryptByAlg($profile->base_salary_enc, $alg) : null;
         $allow = $profile->allowance_fixed_enc ? (float) CryptoService::decryptByAlg($profile->allowance_fixed_enc, $alg) : (float) $profile->allowance_fixed;
         $ded   = $profile->deduction_fixed_enc ? (float) CryptoService::decryptByAlg($profile->deduction_fixed_enc, $alg) : (float) $profile->deduction_fixed;
+
+        $mandaysVal = $profile->mandays_rate_enc ? CryptoService::decryptByAlg($profile->mandays_rate_enc, $alg) : null;
+
+        $effectiveGradeId = $profile->grade_id ?? $employee->grade_id;
+        $effectivePosition = $profile->position ?? $employee->position;
+
+        $grade = $effectiveGradeId ? \App\Models\Grade::find($effectiveGradeId) : null;
+
+        $is_using_default_base = false;
+        if ($baseVal === null || $baseVal === '') {
+            if ($profile->base_salary > 0) {
+                $base = (float)$profile->base_salary;
+                $is_using_default_base = false;
+            } else {
+                $base = $grade ? (float)$grade->default_base_salary : 0.0;
+                $is_using_default_base = true;
+            }
+        } else {
+            $base = (float)$baseVal;
+            $is_using_default_base = false;
+        }
+
+        $is_using_default_mandays = false;
+        if ($mandaysVal === null || $mandaysVal === '') {
+            if ($profile->mandays_rate !== null) {
+                $mandays_rate = (string)$profile->mandays_rate;
+                $is_using_default_mandays = false;
+            } else {
+                $mandays_rate = $grade ? ($grade->default_mandays_rate !== null ? (string)$grade->default_mandays_rate : null) : null;
+                $is_using_default_mandays = true;
+            }
+        } else {
+            $mandays_rate = (string)$mandaysVal;
+            $is_using_default_mandays = false;
+        }
 
         return response()->json([
             'employee_id' => $employee->id,
             'effective_from' => $profile->effective_from->toDateString(),
+            'grade_id' => $effectiveGradeId,
+            'position' => $effectivePosition,
             'base_salary' => (string) $base,
             'allowance_fixed' => (string) $allow,
             'deduction_fixed' => (string) $ded,
-            'mandays_rate' => $profile->mandays_rate !== null ? (string) $profile->mandays_rate : null,
+            'mandays_rate' => $mandays_rate,
+            'is_using_default_base' => $is_using_default_base,
+            'is_using_default_mandays' => $is_using_default_mandays,
             'suggested_total' => (string) ($base + $allow - $ded),
         ]);
     }
@@ -327,7 +366,7 @@ class EmployeeController extends Controller
         }
 
         $data = $request->validate([
-            'base_salary' => ['required', 'numeric', 'min:0'],
+            'base_salary' => ['nullable', 'numeric', 'min:0'],
             'allowance_fixed' => ['nullable', 'numeric', 'min:0'],
             'deduction_fixed' => ['nullable', 'numeric', 'min:0'],
             'effective_from' => ['required', 'date'],
@@ -336,6 +375,9 @@ class EmployeeController extends Controller
             'overtime_rate_per_hour' => ['nullable', 'numeric', 'min:0'],
             'late_penalty_per_minute' => ['nullable', 'numeric', 'min:0'],
             'mandays_rate' => ['nullable', 'numeric', 'min:0'],
+
+            'grade_id' => ['nullable', 'exists:grades,id'],
+            'position' => ['nullable', 'string', 'max:255'],
 
             'salary_alg' => ['nullable', 'in:AES,RSA'],
         ]);
@@ -348,17 +390,22 @@ class EmployeeController extends Controller
                 : CryptoService::encryptAESGCM($v);
         };
 
-        $base  = (float) $data['base_salary'];
+        $base = array_key_exists('base_salary', $data) && $data['base_salary'] !== null ? (float) $data['base_salary'] : null;
         $allow = (float) ($data['allowance_fixed'] ?? 0);
         $ded   = (float) ($data['deduction_fixed'] ?? 0);
 
         $daily = array_key_exists('daily_rate', $data) ? (float) ($data['daily_rate'] ?? 0) : null;
         $ot    = array_key_exists('overtime_rate_per_hour', $data) ? (float) ($data['overtime_rate_per_hour'] ?? 0) : null;
         $late  = array_key_exists('late_penalty_per_minute', $data) ? (float) ($data['late_penalty_per_minute'] ?? 0) : null;
-        $mandays_rate = array_key_exists('mandays_rate', $data) ? (float) ($data['mandays_rate'] ?? 0) : null;
+        $mandays_rate = array_key_exists('mandays_rate', $data) && $data['mandays_rate'] !== null ? (float) $data['mandays_rate'] : null;
+
+        $gradeId = array_key_exists('grade_id', $data) ? $data['grade_id'] : $employee->grade_id;
+        $position = array_key_exists('position', $data) ? $data['position'] : $employee->position;
 
         $profile = $employee->salaryProfiles()->create([
-            'base_salary' => $base,
+            'grade_id' => $gradeId,
+            'position' => $position,
+            'base_salary' => $base ?? 0,
             'allowance_fixed' => $allow,
             'deduction_fixed' => $ded,
             'daily_rate' => $daily,
@@ -367,12 +414,13 @@ class EmployeeController extends Controller
             'mandays_rate' => $mandays_rate,
             'effective_from' => $data['effective_from'],
 
-            'base_salary_enc' => $enc((string) $base),
+            'base_salary_enc' => $base !== null ? $enc((string) $base) : null,
             'allowance_fixed_enc' => $enc((string) $allow),
             'deduction_fixed_enc' => $enc((string) $ded),
             'daily_rate_enc' => $daily !== null ? $enc((string) $daily) : null,
             'overtime_rate_per_hour_enc' => $ot !== null ? $enc((string) $ot) : null,
             'late_penalty_per_minute_enc' => $late !== null ? $enc((string) $late) : null,
+            'mandays_rate_enc' => $mandays_rate !== null ? $enc((string) $mandays_rate) : null,
 
             'salary_alg' => $alg,
             'salary_key_id' => CryptoService::keyId(),

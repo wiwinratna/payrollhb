@@ -8,6 +8,8 @@ class SalaryProfile extends Model
 {
     protected $fillable = [
         'employee_id',
+        'grade_id',
+        'position',
 
         // plaintext (transisi)
         'base_salary',
@@ -36,10 +38,16 @@ class SalaryProfile extends Model
 
     protected $casts = [
         'effective_from' => 'date',
+        'grade_id' => 'integer',
     ];
 
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function grade()
+    {
+        return $this->belongsTo(Grade::class);
     }
 }

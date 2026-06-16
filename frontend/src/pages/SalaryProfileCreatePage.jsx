@@ -32,11 +32,14 @@ export default function SalaryProfileCreatePage() {
 
   const [effectiveMonth, setEffectiveMonth] = useState(() => todayMonth());
 
+  const [grades, setGrades] = useState([]);
   const [form, setForm] = useState({
     base_salary: "",
     allowance_fixed: "",
     deduction_fixed: "",
     mandays_rate: "",
+    grade_id: "",
+    position: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -47,6 +50,26 @@ export default function SalaryProfileCreatePage() {
   function setField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  // Load available grades
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    fetch(`${API_BASE}/api/grades`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setGrades(data);
+        }
+      })
+      .catch((err) => console.error("Gagal load grades:", err));
+  }, [API_BASE]);
 
   // Load employee details to find work basis
   useEffect(() => {
@@ -66,7 +89,23 @@ export default function SalaryProfileCreatePage() {
       .catch((err) => console.error("Gagal load detail employee:", err));
   }, [id, API_BASE]);
 
+  // Fallback to employee details for new profile
+  useEffect(() => {
+    if (employee && !hasProfile) {
+      setForm((prev) => ({
+        ...prev,
+        grade_id: prev.grade_id || (employee.grade_id ? String(employee.grade_id) : ""),
+        position: prev.position || (employee.position ?? ""),
+      }));
+    }
+  }, [employee, hasProfile]);
+
   const isMandays = employee?.work_basis?.code === "mandays";
+
+  const selectedGrade = useMemo(() => {
+    if (!form.grade_id || !grades.length) return null;
+    return grades.find((g) => String(g.id) === String(form.grade_id));
+  }, [form.grade_id, grades]);
 
   // Load current salary profile based on month
   async function loadProfile(month = effectiveMonth) {
@@ -90,7 +129,14 @@ export default function SalaryProfileCreatePage() {
       if (res.status === 404) {
         setHasProfile(false);
         setIsEditing(true);
-        setForm({ base_salary: "", allowance_fixed: "", deduction_fixed: "", mandays_rate: "" });
+        setForm({
+          base_salary: "",
+          allowance_fixed: "",
+          deduction_fixed: "",
+          mandays_rate: "",
+          grade_id: employee?.grade_id ? String(employee.grade_id) : "",
+          position: employee?.position ?? "",
+        });
         return;
       }
 
@@ -103,10 +149,12 @@ export default function SalaryProfileCreatePage() {
       setHasProfile(true);
       setIsEditing(false);
       setForm({
-        base_salary: String(data?.base_salary ?? "0"),
+        base_salary: data?.is_using_default_base ? "" : String(data?.base_salary ?? ""),
         allowance_fixed: String(data?.allowance_fixed ?? "0"),
         deduction_fixed: String(data?.deduction_fixed ?? "0"),
-        mandays_rate: String(data?.mandays_rate ?? "0"),
+        mandays_rate: data?.is_using_default_mandays ? "" : (data?.mandays_rate !== null ? String(data.mandays_rate) : ""),
+        grade_id: data?.grade_id ? String(data.grade_id) : "",
+        position: data?.position ?? "",
       });
 
       if (data?.effective_from && /^\d{4}-\d{2}-\d{2}$/.test(data.effective_from)) {
@@ -139,10 +187,12 @@ export default function SalaryProfileCreatePage() {
 
     try {
       const payload = {
-        base_salary: Number(form.base_salary || 0),
+        base_salary: form.base_salary !== "" ? Number(form.base_salary) : null,
         allowance_fixed: Number(form.allowance_fixed || 0),
         deduction_fixed: Number(form.deduction_fixed || 0),
-        mandays_rate: isMandays ? Number(form.mandays_rate || 0) : null,
+        mandays_rate: isMandays ? (form.mandays_rate !== "" ? Number(form.mandays_rate) : null) : null,
+        grade_id: form.grade_id ? Number(form.grade_id) : null,
+        position: form.position || null,
         effective_from: monthToFirstDate(effectiveMonth),
       };
 
@@ -172,8 +222,12 @@ export default function SalaryProfileCreatePage() {
     }
   }
 
+  const displayBaseNum = form.base_salary !== "" 
+    ? Number(form.base_salary) 
+    : (selectedGrade?.default_base_salary ? Number(selectedGrade.default_base_salary) : 0);
+
   const totalPreview =
-    Number(form.base_salary || 0) +
+    displayBaseNum +
     Number(form.allowance_fixed || 0) -
     Number(form.deduction_fixed || 0);
 
@@ -245,12 +299,54 @@ export default function SalaryProfileCreatePage() {
         ) : (
           <form id="salaryProfileForm" onSubmit={handleSubmit} style={{ marginTop: 14 }}>
             <div style={grid2}>
+              <div>
+                <label style={label}>Grade / Golongan</label>
+                <select
+                  value={form.grade_id}
+                  onChange={(e) => setField("grade_id", e.target.value)}
+                  style={{
+                    ...input,
+                    background: isReadOnly ? "#f8fafc" : "#fff",
+                    cursor: isReadOnly ? "not-allowed" : "pointer",
+                  }}
+                  disabled={isReadOnly}
+                >
+                  <option value="">-- Pilih Grade --</option>
+                  {grades.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({g.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={label}>Nama Jabatan</label>
+                <input
+                  type="text"
+                  placeholder="contoh: Senior Staff Accountant"
+                  value={form.position}
+                  onChange={(e) => setField("position", e.target.value)}
+                  style={{
+                    ...input,
+                    background: isReadOnly ? "#f8fafc" : "#fff",
+                    cursor: isReadOnly ? "not-allowed" : "text",
+                  }}
+                  disabled={isReadOnly}
+                />
+              </div>
+
               <Field
                 label="Gaji Pokok"
-                placeholder="contoh: 5000000"
+                placeholder={selectedGrade?.default_base_salary ? `Default: Rp ${formatNumber(selectedGrade.default_base_salary)}` : "contoh: 5000000"}
                 value={form.base_salary}
                 onChange={(v) => setField("base_salary", v)}
                 disabled={isReadOnly}
+                helperText={form.base_salary 
+                  ? `Rp ${formatNumber(form.base_salary)}` 
+                  : (selectedGrade?.default_base_salary 
+                      ? `Menggunakan Default Grade: Rp ${formatNumber(selectedGrade.default_base_salary)}` 
+                      : "Rp 0")}
               />
               <Field
                 label="Tunjangan Tetap"
@@ -270,10 +366,15 @@ export default function SalaryProfileCreatePage() {
               {isMandays && (
                 <Field
                   label="Mandays Rate (Harian)"
-                  placeholder="contoh: 300000"
+                  placeholder={selectedGrade?.default_mandays_rate ? `Default: Rp ${formatNumber(selectedGrade.default_mandays_rate)}` : "contoh: 300000"}
                   value={form.mandays_rate}
                   onChange={(v) => setField("mandays_rate", v)}
                   disabled={isReadOnly}
+                  helperText={form.mandays_rate 
+                    ? `Rp ${formatNumber(form.mandays_rate)}` 
+                    : (selectedGrade?.default_mandays_rate 
+                        ? `Menggunakan Default Grade: Rp ${formatNumber(selectedGrade.default_mandays_rate)}` 
+                        : "Rp 0")}
                 />
               )}
 
@@ -342,7 +443,7 @@ export default function SalaryProfileCreatePage() {
 }
 
 /* ---------- Small components ---------- */
-function Field({ label: labelText, placeholder, value, onChange, disabled }) {
+function Field({ label: labelText, placeholder, value, onChange, disabled, helperText }) {
   return (
     <div>
       <label style={label}>{labelText}</label>
@@ -358,7 +459,7 @@ function Field({ label: labelText, placeholder, value, onChange, disabled }) {
         }}
         disabled={disabled}
       />
-      <div style={helper}>Rp {formatNumber(value || 0)}</div>
+      <div style={helper}>{helperText || `Rp ${formatNumber(value || 0)}`}</div>
     </div>
   );
 }
