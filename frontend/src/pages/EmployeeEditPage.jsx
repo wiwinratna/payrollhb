@@ -57,11 +57,12 @@ export default function EmployeeEditPage() {
       setErr("");
       setLoading(true);
       try {
-        const [data, gradesList, empTypesList, workBasesList] = await Promise.all([
+        const [data, gradesList, empTypesList, workBasesList, currentProfile] = await Promise.all([
           api(`/employees/${id}`),
           api("/master/grades"),
           api("/master/employment-types"),
           api("/master/work-bases"),
+          api(`/employees/${id}/salary-profile`).catch(() => null)
         ]);
 
         setGrades(Array.isArray(gradesList) ? gradesList : []);
@@ -77,6 +78,9 @@ export default function EmployeeEditPage() {
 
           // Phase 1 fields
           grade_id: data.grade_id ?? "",
+          position_allowance: currentProfile?.position_allowance ?? "",
+          mandays_rate: currentProfile?.mandays_rate ?? "",
+          
           employment_type_id: data.employment_type_id ?? "",
           work_basis_id: data.work_basis_id ?? "",
           num_toddlers: data.num_toddlers ?? 0,
@@ -113,6 +117,8 @@ export default function EmployeeEditPage() {
           department: form.department || null,
           position: form.position || null,
           grade_id: form.grade_id ? parseInt(form.grade_id) : null,
+          position_allowance: form.position_allowance !== "" ? parseFloat(form.position_allowance) : null,
+          mandays_rate: form.mandays_rate !== "" ? parseFloat(form.mandays_rate) : null,
           employment_type_id: form.employment_type_id ? parseInt(form.employment_type_id) : null,
           work_basis_id: form.work_basis_id ? parseInt(form.work_basis_id) : null,
           num_toddlers: parseInt(form.num_toddlers) || 0,
@@ -127,6 +133,23 @@ export default function EmployeeEditPage() {
           bank_account_number: form.bank_account_number || null,
         },
       });
+
+      // Update Salary Profile 
+      // If HCGA submits form, we update the current salary profile or create a new one effective today
+      try {
+        await api(`/employees/${id}/salary-profiles`, {
+          method: "POST",
+          body: {
+            effective_from: new Date().toISOString().split("T")[0],
+            grade_id: form.grade_id ? parseInt(form.grade_id) : null,
+            position: form.position || null,
+            position_allowance: form.position_allowance !== "" ? parseFloat(form.position_allowance) : null,
+            mandays_rate: form.mandays_rate !== "" ? parseFloat(form.mandays_rate) : null,
+          }
+        });
+      } catch (err) {
+        console.warn("Failed to update salary profile on employee edit:", err);
+      }
 
       // sync header user name if this employee matches currently logged in user
       try {
@@ -245,7 +268,21 @@ export default function EmployeeEditPage() {
                       <label className="text-xs font-medium text-slate-600">Grade / Jabatan Level</label>
                       <select
                         value={form.grade_id}
-                        onChange={(e) => setForm((p) => ({ ...p, grade_id: e.target.value }))}
+                        onChange={(e) => {
+                          const gid = e.target.value;
+                          const g = grades.find((gr) => String(gr.id) === String(gid));
+                          if (g) {
+                            const posRate = g.allowance_rates?.find(r => r.allowance_type?.code === 'position');
+                            setForm((prev) => ({ 
+                              ...prev, 
+                              grade_id: gid,
+                              position_allowance: posRate ? posRate.rate_amount : 0,
+                              mandays_rate: g.default_mandays_rate || 0
+                            }));
+                          } else {
+                            setForm((prev) => ({ ...prev, grade_id: gid, position_allowance: "", mandays_rate: "" }));
+                          }
+                        }}
                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
                       >
                         <option value="">-- Pilih Grade --</option>
@@ -285,13 +322,37 @@ export default function EmployeeEditPage() {
                           
                           <div className="p-4">
                             <div className="flex flex-col sm:flex-row gap-8 mb-6">
-                              <div>
-                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">Gaji Bulanan</div>
-                                <div className="text-sm font-semibold text-slate-900">Rp {formatNum(selectedGrade.default_base_salary || 0)}</div>
+                              <div className="flex-1">
+                                <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1 block">Tunjangan Jabatan</label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-medium">Rp</span>
+                                  <input 
+                                    type="number" 
+                                    min="0" 
+                                    value={form.position_allowance} 
+                                    onChange={(e) => setForm(p => ({ ...p, position_allowance: e.target.value }))}
+                                    className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  * Dapat diubah, default dari master data.
+                                </p>
                               </div>
-                              <div>
-                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">Gaji Harian (Mandays)</div>
-                                <div className="text-sm font-semibold text-slate-900">Rp {formatNum(selectedGrade.default_mandays_rate || 0)}</div>
+                              <div className="flex-1">
+                                <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1 block">Gaji Harian (Mandays)</label>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-medium">Rp</span>
+                                  <input 
+                                    type="number" 
+                                    min="0" 
+                                    value={form.mandays_rate} 
+                                    onChange={(e) => setForm(p => ({ ...p, mandays_rate: e.target.value }))}
+                                    className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
+                                  />
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                  * Dapat diubah, default dari master data.
+                                </p>
                               </div>
                             </div>
 

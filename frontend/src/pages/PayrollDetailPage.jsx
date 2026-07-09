@@ -54,12 +54,18 @@ function formatDetail(detail, mandays, rate_amount) {
   if (detail.num_trips != null) parts.push(`${detail.num_trips} Trip`);
   if (detail.project_assignments_mandays != null) parts.push(`${detail.project_assignments_mandays} Hr Project`);
   if (detail.is_on_probation) parts.push("Probation 50%");
+  if (detail.is_prorated) parts.push("Prorata Mutasi");
   if (detail.num_toddlers != null) parts.push(`${detail.num_toddlers} Anak`);
   if (detail.mandays_outside_city != null) parts.push(`${detail.mandays_outside_city} Hr Dinas`);
-  if (detail.mandays_ho_wfo != null || detail.mandays_ho_wfh != null) {
+  if (detail.out_of_town_days != null) parts.push(`${detail.out_of_town_days} Hr Dinas`);
+  if (detail.total_mandays != null) parts.push(`${detail.total_mandays} Hari`);
+  
+  const wfo = detail.mandays_ho_wfo ?? detail.wfo_days;
+  const wfh = detail.mandays_ho_wfh ?? detail.wfh_days;
+  if (wfo != null || wfh != null) {
       const h = [];
-      if (detail.mandays_ho_wfo) h.push(`${detail.mandays_ho_wfo} WFO`);
-      if (detail.mandays_ho_wfh) h.push(`${detail.mandays_ho_wfh} WFH`);
+      if (wfo) h.push(`${wfo} WFO`);
+      if (wfh) h.push(`${wfh} WFH`);
       if (h.length > 0) parts.push(h.join(", "));
   }
   if (detail.mandays_project != null && detail.project_assignments_mandays == null) {
@@ -509,13 +515,34 @@ export default function PayrollDetailPage() {
                          <div className="flex flex-col gap-1">
                            <span className="text-sm font-medium text-slate-700">Gaji Pokok</span>
                            
-                           {row.active_salary_profile && (
-                             <div className="text-xs text-slate-500 mt-1 mb-1">
-                               <div className="grid grid-cols-2 gap-x-4 gap-y-1 bg-slate-50 p-2 rounded border border-slate-100">
-                                 <div>Gaji Bulanan: <span className="font-medium text-slate-700">{formatIDR(row.active_salary_profile.base_salary)}</span></div>
-                                 <div>Rate Harian: <span className="font-medium text-slate-700">{formatIDR(row.active_salary_profile.mandays_rate)}</span></div>
-                               </div>
+                           {row.monthly_recaps && row.monthly_recaps.length > 0 ? (
+                             <div className="text-xs text-slate-500 mt-1 mb-1 space-y-2">
+                               {row.monthly_recaps.map((recap, idx) => (
+                                 <div key={idx} className="bg-slate-50 p-2 rounded border border-slate-100 relative overflow-hidden">
+                                   {row.monthly_recaps.length > 1 && (
+                                     <div className="absolute top-0 right-0 bg-sky-100 text-sky-800 text-[9px] font-bold px-2 py-0.5 rounded-bl">
+                                       Segmen {idx + 1}
+                                     </div>
+                                   )}
+                                   <div className="font-semibold text-slate-700 mb-1">
+                                     {recap.grade_name} (Mulai: {recap.effective_from})
+                                   </div>
+                                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                     <div>Rate Harian: <span className="font-medium text-slate-700">{formatIDR(recap.mandays_rate)}</span></div>
+                                     <div>Subtotal Hari: <span className="font-medium text-slate-700">{recap.total_mandays} hari</span></div>
+                                   </div>
+                                 </div>
+                               ))}
                              </div>
+                           ) : (
+                             row.active_salary_profile && (
+                               <div className="text-xs text-slate-500 mt-1 mb-1">
+                                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 bg-slate-50 p-2 rounded border border-slate-100">
+                                   <div>Gaji Bulanan: <span className="font-medium text-slate-700">{formatIDR(row.active_salary_profile.base_salary)}</span></div>
+                                   <div>Rate Harian: <span className="font-medium text-slate-700">{formatIDR(row.active_salary_profile.mandays_rate)}</span></div>
+                                 </div>
+                               </div>
+                             )
                            )}
                            
                            {row.mandays_summary && (
@@ -538,7 +565,7 @@ export default function PayrollDetailPage() {
                         <>
                           {row.allowances?.map((al, idx) => (
                             <div key={`al-${idx}`} className="flex items-center justify-between px-5 py-4 bg-white/80 group hover:bg-slate-50 transition">
-                              <div className="flex flex-col gap-1">
+                              <div className="flex flex-col gap-1 w-full">
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm text-slate-700 font-medium">{al.allowance_type?.name || al.allowance_type || 'Tunjangan'}</span>
                                   {al.is_manual_override && (
@@ -563,8 +590,25 @@ export default function PayrollDetailPage() {
                                     formatDetail(al.calculation_detail, al.mandays, al.rate_amount)
                                   )}
                                 </span>
+                                
+                                {al.calculation_detail?.segments && al.calculation_detail.segments.length > 0 && (
+                                  <div className="mt-2 space-y-1 pl-1">
+                                    {al.calculation_detail.segments.map((seg, sIdx) => (
+                                      <div key={sIdx} className="flex items-center justify-between text-xs bg-slate-50/50 p-1.5 rounded border border-slate-100/50">
+                                        <div className="text-slate-500">
+                                          <span className="font-medium text-slate-600">{seg.grade}</span>
+                                          {seg.mandays != null ? ` • ${seg.mandays} Hari` : ''}
+                                          {seg.rate != null ? ` • Rate: ${formatIDR(seg.rate)}` : ''}
+                                        </div>
+                                        <div className="font-medium text-slate-600">
+                                          {formatIDR(seg.amount)}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              <span className="text-xs font-semibold text-emerald-600">
+                              <span className="text-xs font-semibold text-emerald-600 shrink-0 ml-4">
                                 {formatIDR(al.amount)}
                               </span>
                             </div>

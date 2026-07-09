@@ -89,23 +89,13 @@ class Employee extends Model
             ->first();
     }
 
-    public function projectAssignments()
+    public function monthlyRecaps()
     {
-        return $this->hasMany(ProjectAssignment::class);
+        return $this->hasMany(MonthlyRecap::class);
     }
 
-    public function schedules()
+    public function jobHistories()
     {
-        return $this->hasMany(Schedule::class);
-    }
-
-    public function attendances()
-    {
-        return $this->hasMany(Attendance::class);
-    }
-
-    public function monthlyMandaysSummaries()
-    {
-        return $this->hasMany(MonthlyMandaysSummary::class);
+        return $this->hasMany(JobHistory::class);
     }
 }

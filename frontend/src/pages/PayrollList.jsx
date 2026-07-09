@@ -119,7 +119,7 @@ export default function PayrollList() {
     const ok = confirm("Kirim payroll ini ke Director untuk approval?");
     if (!ok) return;
     try {
-      await api(`/payrolls/${id}/request-payment`, { method: "POST" });
+      await api(`/payrolls/${id}/request-approval`, { method: "POST" });
       await load();
     } catch (e) {
       alert(e?.message || "Gagal request approval.");

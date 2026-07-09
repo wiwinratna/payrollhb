@@ -134,11 +134,12 @@ export default function DashboardPage() {
       {/* HCGA DASHBOARD */}
       {isHCGA ? (
         <>
-          <div className="grid grid-cols-3 gap-4 mb-5">
+          <div className="grid grid-cols-4 gap-4 mb-5">
             {[
               { label: "Karyawan Aktif", val: hcgaCards.active, sub: "Status aktif saat ini", icon: Users, color: "#2563EB", bg: "#EFF6FF" },
               { label: "Karyawan Nonaktif", val: hcgaCards.inactive, sub: "Tidak dapat mengakses", icon: UserCheck, color: "#94A3B8", bg: "#F8FAFC" },
               { label: "Belum Punya Akun", val: hcgaCards.no_account, sub: "Kandidat create account", icon: Users, color: "#059669", bg: "#ECFDF5" },
+              { label: "Menunggu Rekap", val: hcgaCards.pending_recap, sub: "Bulan Ini", icon: ClipboardList, color: "#D97706", bg: "#FEF3C7" },
             ].map((c, i) => {
               const Icon = c.icon;
               return (

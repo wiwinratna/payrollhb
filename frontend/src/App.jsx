@@ -34,11 +34,7 @@ import AllowanceTypePage from "./pages/AllowanceTypePage";
 import GradeRatePage from "./pages/GradeRatePage";
 
 // Phase 3 UI
-import ProjectsPage from "./pages/ProjectsPage";
-import ProjectAssignmentsPage from "./pages/ProjectAssignmentsPage";
-import SchedulesPage from "./pages/SchedulesPage";
-import AttendancesPage from "./pages/AttendancesPage";
-import MandaysSummaryPage from "./pages/MandaysSummaryPage";
+import MonthlyRecapPage from "./pages/MonthlyRecapPage";
 
 // ACCOUNTING PAGES
 import CoaManagementPage from "./pages/accounting/CoaManagementPage";
@@ -212,44 +208,12 @@ export default function App() {
             }
           />
 
-          {/* PHASE 3 UI */}
+          {/* PHASE 3 UI: Rekap Bulanan */}
           <Route
-            path="/projects"
+            path="/monthly-recaps"
             element={
               <RoleRoute allow={["hcga", "fat", "director"]}>
-                <ProjectsPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/project-assignments"
-            element={
-              <RoleRoute allow={["hcga", "fat", "director"]}>
-                <ProjectAssignmentsPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/schedules"
-            element={
-              <RoleRoute allow={["hcga", "fat", "director"]}>
-                <SchedulesPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/attendances"
-            element={
-              <RoleRoute allow={["hcga", "fat", "director"]}>
-                <AttendancesPage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/mandays-summary"
-            element={
-              <RoleRoute allow={["hcga", "fat", "director"]}>
-                <MandaysSummaryPage />
+                <MonthlyRecapPage />
               </RoleRoute>
             }
           />

@@ -8,11 +8,6 @@ use App\Models\Grade;
 use App\Models\EmploymentType;
 use App\Models\WorkBasis;
 use App\Models\SalaryProfile;
-use App\Models\Project;
-use App\Models\Schedule;
-use App\Models\ProjectAssignment;
-use App\Models\Attendance;
-use App\Models\MonthlyMandaysSummary;
 use App\Services\PayrollCalculationService;
 use App\Services\CryptoService;
 use Illuminate\Database\Seeder;
@@ -73,6 +68,8 @@ class DummyPayrollSeeder extends Seeder
                 'position' => 'Software Engineer',
                 'base_salary' => $baseSal,
                 'base_salary_enc' => CryptoService::encryptAESGCM((string)$baseSal),
+                'mandays_rate' => 100000,
+                'mandays_rate_enc' => CryptoService::encryptAESGCM('100000'),
                 'allowance_fixed' => 0,
                 'allowance_fixed_enc' => CryptoService::encryptAESGCM('0'),
                 'deduction_fixed' => 0,
@@ -81,82 +78,26 @@ class DummyPayrollSeeder extends Seeder
             ]
         );
 
-        $this->command->info('Membuat Project...');
-        $project = Project::firstOrCreate(
-            ['code' => 'PRJ-INT-01'],
-            [
-                'name' => 'Internal Development',
-                'client_name' => 'Internal',
-                'location' => 'HQ',
-                'city' => 'Jakarta',
-                'is_outside_city' => false,
-                'is_client_provide_meal' => false,
-                'status' => 'active',
-                'start_date' => '2026-01-01',
-                'end_date' => '2026-12-31',
-            ]
-        );
-
-        $this->command->info('Assign Karyawan ke Project (Periode 2026-06)...');
-        $this->command->info('Assign Karyawan ke Project (Periode 2026-10)...');
+        $this->command->info('Membuat Rekap Bulanan Karyawan (Periode 2026-10)...');
         $periodMonth = '2026-10';
-        MonthlyMandaysSummary::where('employee_id', $emp->id)->where('period_month', $periodMonth)->delete();
-        ProjectAssignment::updateOrCreate(
-            ['employee_id' => $emp->id, 'project_id' => $project->id, 'period_month' => $periodMonth],
-            ['mandays' => 22]
-        );
+        DB::table('monthly_recaps')->where('employee_id', $emp->id)->where('period_month', $periodMonth)->delete();
 
-        $this->command->info('Memasukkan Data Absensi untuk Periode 2026-10 (28 Sep - 27 Okt)...');
-        $startDate = Carbon::create(2026, 9, 28);
-        $endDate = Carbon::create(2026, 10, 27);
-        
-        // Hapus absensi lama agar tidak duplikat
-        Attendance::where('employee_id', $emp->id)
-            ->whereBetween('attendance_date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->delete();
-
-        $current = $startDate->copy();
-        $totalMandays = 0;
-        $mandaysProject = 0;
-
-        while ($current <= $endDate) {
-            // Absen senin-jumat
-            if ($current->isWeekday()) {
-                Attendance::create([
-                    'employee_id' => $emp->id,
-                    'schedule_id' => null,
-                    'project_id' => $project->id,
-                    'attendance_date' => $current->toDateString(),
-                    'attendance_type' => 'project',
-                    'check_in' => $current->toDateString() . ' 08:50:00',
-                    'check_out' => $current->toDateString() . ' 18:10:00',
-                    'recorded_by' => $user->id
-                ]);
-                $totalMandays++;
-                $mandaysProject++;
-            }
-            $current->addDay();
-        }
-
-        $this->command->info('Generate Monthly Mandays Summary...');
-        MonthlyMandaysSummary::updateOrCreate(
-            ['employee_id' => $emp->id, 'period_month' => $periodMonth],
-            [
-                'period_from' => $startDate->toDateString(),
-                'period_to' => $endDate->toDateString(),
-                'mandays_project' => $mandaysProject,
-                'mandays_ho_wfo' => 0,
-                'mandays_ho_wfh' => 0,
-                'mandays_training' => 0,
-                'mandays_outside_city' => 0,
-                'mandays_leave' => 0,
-                'total_mandays' => $totalMandays,
-                'num_trips' => 0,
-                'working_days_in_period' => 22,
-                'is_finalized' => true,
-                'finalized_at' => now(),
-            ]
-        );
+        DB::table('monthly_recaps')->insert([
+            'employee_id' => $emp->id,
+            'period_month' => $periodMonth,
+            'wfo_days' => 22,
+            'wfh_days' => 0,
+            'out_of_town_days' => 0,
+            'business_trips' => 0,
+            'training_days' => 0,
+            'overtime_hours' => 0,
+            'total_mandays' => 22,
+            'is_finalized' => true,
+            'finalized_at' => now(),
+            'finalized_by' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $this->command->info('Generate Payroll (via PayrollCalculationService)...');
         $service = new PayrollCalculationService();

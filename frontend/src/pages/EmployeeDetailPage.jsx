@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import EmployeeHistoryHub from "@/components/EmployeeHistoryHub";
+import EmployeeMutationModal from "@/components/EmployeeMutationModal";
 
 function StatusBadge({ status }) {
   const s = String(status || "").toLowerCase();
@@ -71,6 +72,18 @@ export default function EmployeeDetailPage() {
   // local toggle untuk masking UI
   const [reveal, setReveal] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
+  
+  const [isMutationModalOpen, setIsMutationModalOpen] = useState(false);
+
+  const fetchEmployee = async () => {
+    try {
+      const data = await api(`/employees/${id}`);
+      setEmp(data);
+      setReveal(false);
+    } catch (e) {
+      setErr(e?.message || "Gagal memuat detail employee.");
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -78,18 +91,9 @@ export default function EmployeeDetailPage() {
     (async () => {
       setErr("");
       setLoading(true);
-      try {
-        const data = await api(`/employees/${id}`);
-        if (!mounted) return;
-        setEmp(data);
-        setReveal(false);
-      } catch (e) {
-        if (!mounted) return;
-        setErr(e?.message || "Gagal memuat detail employee.");
-      } finally {
-        if (!mounted) return;
-        setLoading(false);
-      }
+      await fetchEmployee();
+      if (!mounted) return;
+      setLoading(false);
     })();
 
     return () => {
@@ -192,16 +196,22 @@ export default function EmployeeDetailPage() {
             </Button>
 
             {isHCGA && (
-              <Button
-                variant="outline"
-                className="rounded border-slate-200 bg-white hover:bg-slate-50"
-                onClick={() => nav(`/employees/${id}/edit`)}
-              >
-                Edit
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="rounded border-slate-200 bg-white hover:bg-slate-50"
+                  onClick={() => nav(`/employees/${id}/edit`)}
+                >
+                  Edit
+                </Button>
+                <Button
+                  className="rounded bg-indigo-600 hover:bg-indigo-700 text-white"
+                  onClick={() => setIsMutationModalOpen(true)}
+                >
+                  Mutasi / Promosi
+                </Button>
+              </>
             )}
-
-            {/* Set Salary button removed */}
           </div>
         </div>
 
@@ -278,7 +288,7 @@ export default function EmployeeDetailPage() {
                     Employment & Payroll Info (Fase 1)
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Field label="Grade" value={emp.grade ? `${emp.grade.name} (${emp.grade.code.toUpperCase()})` : "-"} />
+                    <Field label="Jabatan (Level)" value={emp.grade ? `${emp.grade.name} (${emp.grade.code.toUpperCase()})` : "-"} />
                     <Field label="Employment Type" value={emp.employment_type ? emp.employment_type.name : "-"} />
                     <Field label="Work Basis" value={emp.work_basis ? emp.work_basis.name : "-"} />
                     <Field label="Jumlah Balita (Childcare)" value={String(emp.num_toddlers || 0)} />
@@ -402,6 +412,16 @@ export default function EmployeeDetailPage() {
           <EmployeeHistoryHub employeeId={id} employeeName={emp?.name} />
         )}
       </div>
+
+      <EmployeeMutationModal
+        isOpen={isMutationModalOpen}
+        onClose={() => setIsMutationModalOpen(false)}
+        employee={emp}
+        onSuccess={() => {
+          setIsMutationModalOpen(false);
+          fetchEmployee(); // Refresh data setelah mutasi
+        }}
+      />
     </div>
   );
 }

@@ -194,10 +194,10 @@ export default function GradeRatePage() {
             </div>
 
             <h1 className="mt-4 text-lg font-semibold text-foreground">
-              Grade Rate Matrix
+              Tarif Tunjangan Jabatan
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Pengaturan nominal tarif tunjangan untuk kombinasi tingkatan Grade dan Jenis Tunjangan. Klik pada sel untuk melakukan pengisian atau perubahan.
+              Pengaturan nominal tarif tunjangan untuk kombinasi tingkatan Jabatan dan Jenis Tunjangan. Klik pada sel untuk melakukan pengisian atau perubahan.
             </p>
           </div>
 
@@ -208,7 +208,7 @@ export default function GradeRatePage() {
               disabled={loading}
               className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              {loading ? "Refreshing..." : "Refresh Matrix"}
+              {loading ? "Refreshing..." : "Refresh Tarif"}
             </Button>
           </div>
         </div>
@@ -228,7 +228,7 @@ export default function GradeRatePage() {
         {/* Matrix Table */}
         <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">Grade Allowance Rates Matrix</span>
+            <span className="text-sm font-medium text-foreground">Matriks Tarif Tunjangan Jabatan</span>
             <span className="text-xs text-slate-500">
               {loading ? "Memuat..." : "Klik sel untuk isi/edit rate"}
             </span>
@@ -240,7 +240,7 @@ export default function GradeRatePage() {
                 <TableHeader>
                   <TableRow className="bg-slate-50/80">
                     <TableHead className="text-slate-700 pl-6 w-[180px] font-bold border-r border-slate-200/50">
-                      Grade / Level
+                      Jabatan / Level
                     </TableHead>
                     {allowances.map((allowance) => (
                       <TableHead key={allowance.id} className="text-slate-700 text-center font-bold px-2 py-3 text-xs w-[140px]">

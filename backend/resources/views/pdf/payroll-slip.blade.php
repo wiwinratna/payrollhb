@@ -51,15 +51,10 @@
   @php
     $rupiah = fn($n) => number_format((float)($n ?? 0), 0, ',', '.');
     
-    // Parse period_from and period_to if MonthlyMandaysSummary is available
     $periodStr = optional($payroll->periode)->format('F Y');
-    $summary = \App\Models\MonthlyMandaysSummary::where('employee_id', $payroll->employee_id)
-                ->where('period_month', optional($payroll->periode)->format('Y-m'))
-                ->first();
-                
-    if ($summary && $summary->period_from && $summary->period_to) {
-        $from = \Carbon\Carbon::parse($summary->period_from);
-        $to = \Carbon\Carbon::parse($summary->period_to);
+    if ($payroll->period_from && $payroll->period_to) {
+        $from = \Carbon\Carbon::parse($payroll->period_from);
+        $to = \Carbon\Carbon::parse($payroll->period_to);
         if ($from->month == $to->month) {
             $periodStr = $from->format('d') . ' sd ' . $to->format('d F Y');
         } else {
@@ -69,13 +64,13 @@
 
     $emp = $payroll->employee;
     
-    // Prepare arrays for left side (Penerimaan) and right side (Potongan)
     $incomes = [];
     $incomes[] = [
         'name' => 'FIXED RATE',
         'mandays' => '-',
         'rate' => '-',
-        'amount' => $payroll->gaji_pokok
+        'amount' => $payroll->gaji_pokok,
+        'is_subrow' => false
     ];
     
     // Fetch all available allowance types to ensure they always show up
@@ -85,18 +80,37 @@
     foreach ($allAllowanceTypes as $type) {
         $al = $actualAllowances->get($type->id);
         if ($al) {
+            $calcDetail = $al->calculation_detail;
+            if (is_string($calcDetail)) $calcDetail = json_decode($calcDetail, true);
+            
+            $hasSegments = isset($calcDetail['segments']) && count($calcDetail['segments']) > 0;
+            
             $incomes[] = [
                 'name' => strtoupper($type->name),
-                'mandays' => $al->mandays > 0 ? (float)$al->mandays : '-',
-                'rate' => $al->rate_amount > 0 ? $rupiah($al->rate_amount) : '-',
-                'amount' => $al->amount
+                'mandays' => (!$hasSegments && $al->mandays > 0) ? (float)$al->mandays : '-',
+                'rate' => (!$hasSegments && $al->rate_amount > 0) ? $rupiah($al->rate_amount) : '-',
+                'amount' => $al->amount,
+                'is_subrow' => false
             ];
+            
+            if ($hasSegments) {
+                foreach ($calcDetail['segments'] as $seg) {
+                    $incomes[] = [
+                        'name' => '   - ' . ($seg['grade'] ?? 'Jabatan'),
+                        'mandays' => (isset($seg['mandays']) && $seg['mandays'] > 0) ? (float)$seg['mandays'] : '-',
+                        'rate' => (isset($seg['rate']) && $seg['rate'] > 0) ? $rupiah($seg['rate']) : '-',
+                        'amount' => $seg['amount'],
+                        'is_subrow' => true
+                    ];
+                }
+            }
         } else {
             $incomes[] = [
                 'name' => strtoupper($type->name),
                 'mandays' => '-',
                 'rate' => '-',
-                'amount' => 0
+                'amount' => 0,
+                'is_subrow' => false
             ];
         }
     }
@@ -118,7 +132,8 @@
         $dd = $actualDeductions->get($label);
         $deductions[] = [
             'name' => $label,
-            'amount' => $dd ? $dd->amount : 0
+            'amount' => $dd ? $dd->amount : 0,
+            'is_subrow' => false
         ];
     }
     
@@ -127,7 +142,8 @@
         if (!in_array($label, $defaultDeductions)) {
             $deductions[] = [
                 'name' => $label,
-                'amount' => $dd->amount
+                'amount' => $dd->amount,
+                'is_subrow' => false
             ];
         }
     }
@@ -218,10 +234,10 @@
           $ded = $i < count($deductions) ? $deductions[$i] : null;
         @endphp
         <tr>
-          <td>{{ $inc ? '- '.$inc['name'] : '' }}</td>
-          <td class="center">{{ $inc ? $inc['mandays'] : '' }}</td>
-          <td class="right">{{ $inc && $inc['rate'] !== '-' ? 'Rp ' . $inc['rate'] : ($inc ? '-' : '') }}</td>
-          <td class="right">{{ $inc ? ($inc['amount'] > 0 ? $rupiah($inc['amount']) : '-') : '' }}</td>
+          <td style="{{ $inc && $inc['is_subrow'] ? 'padding-left: 15px; font-style: italic; color: #555;' : '' }}">{{ $inc ? (!$inc['is_subrow'] ? '- ' : '') . $inc['name'] : '' }}</td>
+          <td class="center" style="{{ $inc && $inc['is_subrow'] ? 'font-style: italic; color: #555;' : '' }}">{{ $inc ? $inc['mandays'] : '' }}</td>
+          <td class="right" style="{{ $inc && $inc['is_subrow'] ? 'font-style: italic; color: #555;' : '' }}">{{ $inc && $inc['rate'] !== '-' ? 'Rp ' . $inc['rate'] : ($inc ? '-' : '') }}</td>
+          <td class="right" style="{{ $inc && $inc['is_subrow'] ? 'font-style: italic; color: #555;' : '' }}">{{ $inc ? ($inc['amount'] > 0 ? $rupiah($inc['amount']) : '-') : '' }}</td>
           
           <td style="padding-left: 10px;">{{ $ded ? '- '.$ded['name'] : '' }}</td>
           <td class="right">{{ $ded ? ($ded['amount'] > 0 ? $rupiah($ded['amount']) : '-') : '' }}</td>

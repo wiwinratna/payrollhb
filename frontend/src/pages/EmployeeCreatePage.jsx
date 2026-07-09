@@ -15,6 +15,8 @@ export default function EmployeeCreatePage() {
 
     // Phase 1 fields
     grade_id: "",
+    position_allowance: "",
+    mandays_rate: "",
     employment_type_id: "",
     work_basis_id: "",
     num_toddlers: 0,
@@ -30,6 +32,13 @@ export default function EmployeeCreatePage() {
     bank_name: "",
     bank_account_name: "",
     bank_account_number: "",
+
+    // Account creation
+    create_account: false,
+    email: "",
+    role: "staff",
+    password: "",
+    password_confirmation: "",
   });
 
   const [grades, setGrades] = useState([]);
@@ -116,6 +125,8 @@ export default function EmployeeCreatePage() {
         department: form.department || null,
         position: form.position || null,
         grade_id: form.grade_id ? parseInt(form.grade_id) : null,
+        position_allowance: form.position_allowance !== "" ? parseFloat(form.position_allowance) : null,
+        mandays_rate: form.mandays_rate !== "" ? parseFloat(form.mandays_rate) : null,
         employment_type_id: form.employment_type_id ? parseInt(form.employment_type_id) : null,
         work_basis_id: form.work_basis_id ? parseInt(form.work_basis_id) : null,
         num_toddlers: parseInt(form.num_toddlers) || 0,
@@ -128,6 +139,12 @@ export default function EmployeeCreatePage() {
         bank_name: form.bank_name || null,
         bank_account_name: form.bank_account_name || null,
         bank_account_number: form.bank_account_number || null,
+
+        create_account: form.create_account,
+        email: form.create_account ? form.email : null,
+        role: form.create_account ? form.role : null,
+        password: form.create_account ? form.password : null,
+        password_confirmation: form.create_account ? form.password_confirmation : null,
       };
 
       const data = await api("/employees", {
@@ -284,7 +301,21 @@ export default function EmployeeCreatePage() {
                   <label className="text-xs font-medium text-slate-600">Grade / Jabatan Level</label>
                   <select
                     value={form.grade_id}
-                    onChange={(e) => setField("grade_id", e.target.value)}
+                    onChange={(e) => {
+                      const gid = e.target.value;
+                      const g = grades.find((gr) => String(gr.id) === String(gid));
+                      if (g) {
+                        const posRate = g.allowance_rates?.find(r => r.allowance_type?.code === 'position');
+                        setForm((prev) => ({ 
+                          ...prev, 
+                          grade_id: gid,
+                          position_allowance: posRate ? posRate.rate_amount : 0,
+                          mandays_rate: g.default_mandays_rate || 0
+                        }));
+                      } else {
+                        setForm((prev) => ({ ...prev, grade_id: gid, position_allowance: "", mandays_rate: "" }));
+                      }
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
                   >
                     <option value="">-- Pilih Grade --</option>
@@ -324,13 +355,37 @@ export default function EmployeeCreatePage() {
                       
                       <div className="p-4">
                         <div className="flex flex-col sm:flex-row gap-8 mb-6">
-                          <div>
-                            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">Gaji Bulanan</div>
-                            <div className="text-sm font-semibold text-slate-900">Rp {formatNum(selectedGrade.default_base_salary || 0)}</div>
+                          <div className="flex-1">
+                            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1 block">Tunjangan Jabatan</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-medium">Rp</span>
+                              <input 
+                                type="number" 
+                                min="0" 
+                                value={form.position_allowance} 
+                                onChange={(e) => setField("position_allowance", e.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              * Dapat diubah, default dari master data.
+                            </p>
                           </div>
-                          <div>
-                            <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">Gaji Harian (Mandays)</div>
-                            <div className="text-sm font-semibold text-slate-900">Rp {formatNum(selectedGrade.default_mandays_rate || 0)}</div>
+                          <div className="flex-1">
+                            <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1 block">Gaji Harian (Mandays)</label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-medium">Rp</span>
+                              <input 
+                                type="number" 
+                                min="0" 
+                                value={form.mandays_rate} 
+                                onChange={(e) => setField("mandays_rate", e.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              * Dapat diubah, default dari master data.
+                            </p>
                           </div>
                         </div>
 
@@ -516,6 +571,66 @@ export default function EmployeeCreatePage() {
                   error={errors.bank_account_number}
                 />
               </div>
+            </section>
+
+            {/* SEKSI 4: AKUN LOGIN (OPSIONAL) */}
+            <section className="bg-slate-50 border border-slate-200/60 rounded-2xl p-5 sm:p-6 mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="create_account"
+                  className="w-4 h-4 text-sky-500 rounded border-slate-300 focus:ring-sky-500"
+                  checked={form.create_account}
+                  onChange={(e) => setField("create_account", e.target.checked)}
+                />
+                <label htmlFor="create_account" className="font-semibold text-sm text-slate-800">
+                  Buat Akun Login untuk Pegawai Ini
+                </label>
+              </div>
+
+              {form.create_account && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Field
+                    label="Email Login"
+                    placeholder="Contoh: user@domain.com"
+                    value={form.email}
+                    onChange={(v) => setField("email", v)}
+                    error={errors.email}
+                  />
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Peran Akun (Role)</label>
+                    <select
+                      value={form.role}
+                      onChange={(e) => setField("role", e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none transition bg-white focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    >
+                      <option value="staff">Staff</option>
+                      <option value="hcga">HCGA</option>
+                      <option value="fat">FAT</option>
+                      <option value="director">Director</option>
+                    </select>
+                    {errors.role && <div className="text-xs text-rose-700">{errors.role}</div>}
+                  </div>
+
+                  <Field
+                    type="password"
+                    label="Password"
+                    placeholder="Minimal 8 karakter"
+                    value={form.password}
+                    onChange={(v) => setField("password", v)}
+                    error={errors.password}
+                  />
+
+                  <Field
+                    type="password"
+                    label="Konfirmasi Password"
+                    placeholder="Ketik ulang password"
+                    value={form.password_confirmation}
+                    onChange={(v) => setField("password_confirmation", v)}
+                  />
+                </div>
+              )}
             </section>
 
             {/* ACTIONS */}

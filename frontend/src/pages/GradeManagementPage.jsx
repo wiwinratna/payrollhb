@@ -32,7 +32,6 @@ export default function GradeManagementPage() {
     level: 1,
     description: "",
     is_active: true,
-    default_base_salary: "",
     default_mandays_rate: "",
   });
 
@@ -62,7 +61,6 @@ export default function GradeManagementPage() {
       level: rows.length > 0 ? Math.max(...rows.map((r) => r.level)) + 1 : 1,
       description: "",
       is_active: true,
-      default_base_salary: "",
       default_mandays_rate: "",
     });
     setIsEdit(false);
@@ -76,7 +74,6 @@ export default function GradeManagementPage() {
       level: r.level,
       description: r.description || "",
       is_active: r.is_active,
-      default_base_salary: r.default_base_salary !== null && r.default_base_salary !== undefined ? String(r.default_base_salary) : "",
       default_mandays_rate: r.default_mandays_rate !== null && r.default_mandays_rate !== undefined ? String(r.default_mandays_rate) : "",
     });
     setEditId(r.id);
@@ -90,7 +87,6 @@ export default function GradeManagementPage() {
     setSuccess("");
     const payload = {
       ...form,
-      default_base_salary: form.default_base_salary !== "" ? Number(form.default_base_salary) : null,
       default_mandays_rate: form.default_mandays_rate !== "" ? Number(form.default_mandays_rate) : null,
     };
     try {
@@ -149,7 +145,7 @@ export default function GradeManagementPage() {
             </div>
 
             <h1 className="mt-4 text-lg font-semibold text-foreground">
-              Grade Management
+              Master Jabatan
             </h1>
             <p className="mt-1 text-sm text-slate-600">
               Kelola level jabatan karyawan (BOD, PM, PD, dll) beserta tingkatan level hierarkinya.
@@ -187,11 +183,11 @@ export default function GradeManagementPage() {
         )}
 
         {/* Grades Table */}
-        <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+          <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">Grade List</span>
+            <span className="text-sm font-medium text-foreground">Daftar Jabatan</span>
             <span className="text-xs text-slate-500">
-              {loading ? "Memuat..." : `${rows.length} grade`}
+              {loading ? "Memuat..." : `${rows.length} jabatan`}
             </span>
           </div>
 
@@ -203,8 +199,7 @@ export default function GradeManagementPage() {
                     <TableHead className="text-slate-700 pl-6 w-[120px]">Code</TableHead>
                     <TableHead className="text-slate-700 w-[180px]">Name</TableHead>
                     <TableHead className="text-slate-700 w-[90px]">Level</TableHead>
-                    <TableHead className="text-slate-700 w-[130px]">Default Bulanan</TableHead>
-                    <TableHead className="text-slate-700 w-[120px]">Default Harian</TableHead>
+                    <TableHead className="text-slate-700 w-[130px]">Default Harian</TableHead>
                     <TableHead className="text-slate-700 w-[200px]">Description</TableHead>
                     <TableHead className="text-slate-700 w-[100px]">Status</TableHead>
                     <TableHead className="text-center text-slate-700 w-[160px] pr-6">Action</TableHead>
@@ -214,7 +209,7 @@ export default function GradeManagementPage() {
                 <TableBody>
                   {loading && (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-12 text-center text-slate-500">
+                      <TableCell colSpan={7} className="py-12 text-center text-slate-500">
                         Loading data...
                       </TableCell>
                     </TableRow>
@@ -222,8 +217,8 @@ export default function GradeManagementPage() {
 
                   {!loading && rows.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-12 text-center text-slate-500">
-                        Belum ada grade yang terdaftar.
+                      <TableCell colSpan={7} className="py-12 text-center text-slate-500">
+                        Belum ada jabatan yang terdaftar.
                       </TableCell>
                     </TableRow>
                   )}
@@ -246,9 +241,6 @@ export default function GradeManagementPage() {
                         </TableCell>
                         <TableCell className="font-semibold text-indigo-700 py-4">
                           Level {r.level}
-                        </TableCell>
-                        <TableCell className="font-semibold text-emerald-700 py-4">
-                          {r.default_base_salary ? `Rp ${Number(r.default_base_salary).toLocaleString("id-ID")}` : "-"}
                         </TableCell>
                         <TableCell className="font-semibold text-amber-700 py-4">
                           {r.default_mandays_rate ? `Rp ${Number(r.default_mandays_rate).toLocaleString("id-ID")}` : "-"}
@@ -348,32 +340,17 @@ export default function GradeManagementPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-800 mb-1">
-                      Default Gaji Bulanan
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 5000000"
-                      value={form.default_base_salary}
-                      onChange={(e) => setForm({ ...form, default_base_salary: e.target.value })}
-                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-800 mb-1">
-                      Default Gaji Harian
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 150000"
-                      value={form.default_mandays_rate}
-                      onChange={(e) => setForm({ ...form, default_mandays_rate: e.target.value })}
-                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
+                    Gaji Harian Default
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 150000"
+                    value={form.default_mandays_rate}
+                    onChange={(e) => setForm({ ...form, default_mandays_rate: e.target.value })}
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
+                  />
                 </div>
 
                 <div>

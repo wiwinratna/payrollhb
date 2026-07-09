@@ -12,14 +12,12 @@ class Grade extends Model
         'level',
         'description',
         'is_active',
-        'default_base_salary',
         'default_mandays_rate',
     ];
 
     protected $casts = [
         'level'     => 'integer',
         'is_active' => 'boolean',
-        'default_base_salary' => 'float',
         'default_mandays_rate' => 'float',
     ];
 

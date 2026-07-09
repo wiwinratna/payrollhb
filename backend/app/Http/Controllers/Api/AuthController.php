@@ -33,25 +33,24 @@ class AuthController extends Controller
 
         /**
          * 🔒 RULE KEAMANAN
-         * - akun HARUS terhubung ke employee
-         * - employee HARUS active
+         * - Role 'staff' HARUS terhubung ke employee yang status-nya active
+         * - Role lain (HCGA, FAT, Director) bebas login
          */
-        if (!$employee) {
-            Auth::logout();
+        if (strtolower($user->role) === 'staff') {
+            if (!$employee) {
+                Auth::logout();
+                return response()->json([
+                    'message' => 'Akun staff belum terhubung ke data employee. Hubungi HCGA.'
+                ], 403);
+            }
 
-            return response()->json([
-                'message' => 'Akun belum terhubung ke data employee. Hubungi HCGA.'
-            ], 403);
-        }
-
-        if (strtolower((string) $employee->status) !== 'active') {
-            // bersihkan semua token lama
-            $user->tokens()->delete();
-            Auth::logout();
-
-            return response()->json([
-                'message' => 'Akun dinonaktifkan. Silakan hubungi HCGA.'
-            ], 403);
+            if (strtolower((string) $employee->status) !== 'active') {
+                $user->tokens()->delete();
+                Auth::logout();
+                return response()->json([
+                    'message' => 'Akun dinonaktifkan. Silakan hubungi HCGA.'
+                ], 403);
+            }
         }
 
         // ♻️ bersihkan token lama (1 user = 1 session aktif)
@@ -67,11 +66,11 @@ class AuthController extends Controller
                 'name'  => $user->name,
                 'email' => $user->email,
                 'role'  => $user->role,
-                'employee' => [
+                'employee' => $employee ? [
                     'id'            => $employee->id,
                     'employee_code' => $employee->employee_code,
                     'status'        => $employee->status,
-                ],
+                ] : null,
             ],
         ]);
     }

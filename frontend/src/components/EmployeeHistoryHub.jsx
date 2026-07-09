@@ -71,12 +71,11 @@ export default function EmployeeHistoryHub({ employeeId }) {
     );
   }
 
-  // Siapkan data grafik
   // 1. Data Pertumbuhan Gaji Pokok (dari salaryProfiles)
   // Recharts butuh array dari yang terlama ke terbaru
   const spData = [...salaryProfiles].reverse().map(sp => ({
     name: new Date(sp.effective_from).toLocaleDateString('id-ID', { month: 'short', year: '2-digit' }),
-    "Gaji Pokok": parseFloat(sp.base_salary) || 0,
+    "Tunjangan Jabatan": parseFloat(sp.position_allowance) || 0,
     "Posisi": sp.position || "-"
   }));
 
@@ -150,10 +149,10 @@ export default function EmployeeHistoryHub({ employeeId }) {
           </CardContent>
         </Card>
 
-        {/* Grafik Karir (Gaji Pokok) */}
+        {/* Grafik Karir (Tunjangan Jabatan) */}
         <Card className="bg-white border border-border shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-bold text-slate-800">Pertumbuhan Karir & Gaji Pokok</CardTitle>
+            <CardTitle className="text-sm font-bold text-slate-800">Pertumbuhan Karir & Tunjangan Jabatan</CardTitle>
           </CardHeader>
           <CardContent>
             {spData.length === 0 ? (
@@ -174,7 +173,7 @@ export default function EmployeeHistoryHub({ employeeId }) {
                     <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', marginTop: '10px' }}/>
                     <Line 
                       type="stepAfter" 
-                      dataKey="Gaji Pokok" 
+                      dataKey="Tunjangan Jabatan" 
                       stroke="#8b5cf6" 
                       strokeWidth={3}
                       activeDot={{ r: 6 }} 
@@ -256,7 +255,7 @@ export default function EmployeeHistoryHub({ employeeId }) {
                 <tr>
                   <th className="px-4 py-3">Berlaku Sejak</th>
                   <th className="px-4 py-3">Posisi</th>
-                  <th className="px-4 py-3 text-right">Gaji Pokok</th>
+                  <th className="px-4 py-3 text-right">Tunjangan Jabatan</th>
                   <th className="px-4 py-3 text-right">Tunjangan Tetap</th>
                   <th className="px-4 py-3 text-right">Potongan Tetap</th>
                 </tr>
@@ -276,7 +275,7 @@ export default function EmployeeHistoryHub({ employeeId }) {
                         {sp.position || "-"}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-purple-600 font-medium">
-                        {sp.base_salary != null ? formatRupiah(sp.base_salary) : <span className="text-slate-300 italic">Masked</span>}
+                        {sp.position_allowance != null ? formatRupiah(sp.position_allowance) : <span className="text-slate-300 italic">Masked</span>}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-teal-600">
                         {sp.allowance_fixed != null && sp.allowance_fixed > 0 ? formatRupiah(sp.allowance_fixed) : "-"}

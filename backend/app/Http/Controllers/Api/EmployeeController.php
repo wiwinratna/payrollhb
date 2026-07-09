@@ -237,7 +237,7 @@ class EmployeeController extends Controller
 
         $alg = strtoupper((string) ($profile->salary_alg ?? 'AES'));
 
-        $baseVal = $profile->base_salary_enc ? CryptoService::decryptByAlg($profile->base_salary_enc, $alg) : null;
+        $positionVal = $profile->position_allowance_enc ? CryptoService::decryptByAlg($profile->position_allowance_enc, $alg) : null;
         $allow = $profile->allowance_fixed_enc ? (float) CryptoService::decryptByAlg($profile->allowance_fixed_enc, $alg) : (float) $profile->allowance_fixed;
         $ded   = $profile->deduction_fixed_enc ? (float) CryptoService::decryptByAlg($profile->deduction_fixed_enc, $alg) : (float) $profile->deduction_fixed;
 
@@ -249,16 +249,19 @@ class EmployeeController extends Controller
         $grade = $effectiveGradeId ? \App\Models\Grade::find($effectiveGradeId) : null;
 
         $is_using_default_base = false;
-        if ($baseVal === null || $baseVal === '') {
-            if ($profile->base_salary > 0) {
-                $base = (float)$profile->base_salary;
+        if ($positionVal === null || $positionVal === '') {
+            if ($profile->position_allowance > 0) {
+                $base = (float)$profile->position_allowance;
                 $is_using_default_base = false;
             } else {
-                $base = $grade ? (float)$grade->default_base_salary : 0.0;
+                $posRate = $grade ? \App\Models\GradeAllowanceRate::where('grade_id', $grade->id)
+                    ->whereHas('allowanceType', function($q) { $q->where('code', 'position'); })
+                    ->first() : null;
+                $base = $posRate ? (float)$posRate->rate_amount : 0.0;
                 $is_using_default_base = true;
             }
         } else {
-            $base = (float)$baseVal;
+            $base = (float)$positionVal;
             $is_using_default_base = false;
         }
 
@@ -281,7 +284,7 @@ class EmployeeController extends Controller
             'effective_from' => $profile->effective_from->toDateString(),
             'grade_id' => $effectiveGradeId,
             'position' => $effectivePosition,
-            'base_salary' => (string) $base,
+            'position_allowance' => (string) $base,
             'allowance_fixed' => (string) $allow,
             'deduction_fixed' => (string) $ded,
             'mandays_rate' => $mandays_rate,
@@ -324,9 +327,29 @@ class EmployeeController extends Controller
             'num_toddlers' => ['nullable', 'integer', 'min:0'],
             'is_trainer' => ['nullable', 'boolean'],
             'is_on_probation' => ['nullable', 'boolean'],
+            
+            'position_allowance' => ['nullable', 'numeric', 'min:0'],
+            'mandays_rate' => ['nullable', 'numeric', 'min:0'],
+            
+            // Create account fields
+            'create_account' => ['nullable', 'boolean'],
+            'email' => ['nullable', 'required_if:create_account,true', 'email', 'max:255', 'unique:users,email'],
+            'role' => ['nullable', 'required_if:create_account,true', \Illuminate\Validation\Rule::in(['staff', 'hcga', 'fat', 'director'])],
+            'password' => ['nullable', 'required_if:create_account,true', 'string', 'min:8'],
         ]);
 
-        $data['user_id'] = null;
+        $userId = null;
+        if (!empty($data['create_account'])) {
+            $userAcc = \App\Models\User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'role' => $data['role'],
+                'password' => \Illuminate\Support\Facades\Hash::make($data['password']),
+            ]);
+            $userId = $userAcc->id;
+        }
+
+        $data['user_id'] = $userId;
         $data['num_toddlers'] = $data['num_toddlers'] ?? 0;
         $data['is_trainer'] = $data['is_trainer'] ?? false;
         $data['is_on_probation'] = $data['is_on_probation'] ?? false;
@@ -352,17 +375,28 @@ class EmployeeController extends Controller
 
         // Auto-generate default salary profile based on selected Grade
         if ($employee->grade_id) {
+            $base = array_key_exists('position_allowance', $data) && $data['position_allowance'] !== null ? (float) $data['position_allowance'] : 0;
+            $mandays_rate = array_key_exists('mandays_rate', $data) && $data['mandays_rate'] !== null ? (float) $data['mandays_rate'] : 0;
+            
             \App\Models\SalaryProfile::create([
                 'employee_id' => $employee->id,
                 'grade_id' => $employee->grade_id,
                 'position' => $employee->position,
-                'base_salary' => 0, 
-                'mandays_rate' => 0, 
+                'position_allowance' => $base, 
+                'mandays_rate' => $mandays_rate, 
                 'allowance_fixed' => 0,
                 'deduction_fixed' => 0,
                 'effective_from' => date('Y-m-01'),
-                'pii_alg' => $employee->pii_alg,
-                'pii_key_id' => $employee->pii_key_id,
+                'status' => 'active'
+            ]);
+            
+            // Phase 4: Auto-create JobHistory
+            \App\Models\JobHistory::create([
+                'employee_id' => $employee->id,
+                'grade_id' => $employee->grade_id,
+                'position' => $employee->position,
+                'start_date' => date('Y-m-01'),
+                'status' => 'active'
             ]);
         }
 
@@ -387,7 +421,7 @@ class EmployeeController extends Controller
         $results = $profiles->map(function ($p) use ($employeeGrade) {
             $alg = strtoupper((string) ($p->salary_alg ?? 'AES'));
             
-            $baseVal = $p->base_salary_enc ? CryptoService::decryptByAlg($p->base_salary_enc, $alg) : null;
+            $positionVal = $p->position_allowance_enc ? CryptoService::decryptByAlg($p->position_allowance_enc, $alg) : null;
             $allow = $p->allowance_fixed_enc ? (float) CryptoService::decryptByAlg($p->allowance_fixed_enc, $alg) : (float) $p->allowance_fixed;
             $ded   = $p->deduction_fixed_enc ? (float) CryptoService::decryptByAlg($p->deduction_fixed_enc, $alg) : (float) $p->deduction_fixed;
 
@@ -395,16 +429,19 @@ class EmployeeController extends Controller
             $grade = $effectiveGradeId ? \App\Models\Grade::find($effectiveGradeId) : $employeeGrade;
             
             $is_using_default_base = false;
-            if ($baseVal === null || $baseVal === '') {
-                if ($p->base_salary > 0) {
-                    $base = (float)$p->base_salary;
+            if ($positionVal === null || $positionVal === '') {
+                if ($p->position_allowance > 0) {
+                    $base = (float)$p->position_allowance;
                     $is_using_default_base = false;
                 } else {
-                    $base = $grade ? (float)$grade->default_base_salary : 0.0;
+                    $posRate = $grade ? \App\Models\GradeAllowanceRate::where('grade_id', $grade->id)
+                        ->whereHas('allowanceType', function($q) { $q->where('code', 'position'); })
+                        ->first() : null;
+                    $base = $posRate ? (float)$posRate->rate_amount : 0.0;
                     $is_using_default_base = true;
                 }
             } else {
-                $base = (float)$baseVal;
+                $base = (float)$positionVal;
                 $is_using_default_base = false;
             }
 
@@ -412,8 +449,9 @@ class EmployeeController extends Controller
                 'id' => $p->id,
                 'effective_from' => $p->effective_from->toDateString(),
                 'grade_id' => $effectiveGradeId,
+                'grade_name' => $grade ? $grade->name : '-',
                 'position' => $p->position,
-                'base_salary' => (string) $base,
+                'position_allowance' => (string) $base,
                 'allowance_fixed' => (string) $allow,
                 'deduction_fixed' => (string) $ded,
                 'is_using_default_base' => $is_using_default_base,
@@ -435,7 +473,7 @@ class EmployeeController extends Controller
         }
 
         $data = $request->validate([
-            'base_salary' => ['nullable', 'numeric', 'min:0'],
+            'position_allowance' => ['nullable', 'numeric', 'min:0'],
             'allowance_fixed' => ['nullable', 'numeric', 'min:0'],
             'deduction_fixed' => ['nullable', 'numeric', 'min:0'],
             'effective_from' => ['required', 'date'],
@@ -459,7 +497,7 @@ class EmployeeController extends Controller
                 : CryptoService::encryptAESGCM($v);
         };
 
-        $base = array_key_exists('base_salary', $data) && $data['base_salary'] !== null ? (float) $data['base_salary'] : null;
+        $base = array_key_exists('position_allowance', $data) && $data['position_allowance'] !== null ? (float) $data['position_allowance'] : null;
         $allow = (float) ($data['allowance_fixed'] ?? 0);
         $ded   = (float) ($data['deduction_fixed'] ?? 0);
 
@@ -474,7 +512,7 @@ class EmployeeController extends Controller
         $profile = $employee->salaryProfiles()->create([
             'grade_id' => $gradeId,
             'position' => $position,
-            'base_salary' => $base ?? 0,
+            'position_allowance' => $base ?? 0,
             'allowance_fixed' => $allow,
             'deduction_fixed' => $ded,
             'daily_rate' => $daily,
@@ -483,7 +521,7 @@ class EmployeeController extends Controller
             'mandays_rate' => $mandays_rate,
             'effective_from' => $data['effective_from'],
 
-            'base_salary_enc' => $base !== null ? $enc((string) $base) : null,
+            'position_allowance_enc' => $base !== null ? $enc((string) $base) : null,
             'allowance_fixed_enc' => $enc((string) $allow),
             'deduction_fixed_enc' => $enc((string) $ded),
             'daily_rate_enc' => $daily !== null ? $enc((string) $daily) : null,
@@ -494,6 +532,36 @@ class EmployeeController extends Controller
             'salary_alg' => $alg,
             'salary_key_id' => CryptoService::keyId(),
         ]);
+
+        // Job History tracking
+        $lastJobHistory = $employee->jobHistories()->where('status', 'active')->orderBy('start_date', 'desc')->first();
+        
+        $shouldCreateNewHistory = false;
+        if (!$lastJobHistory) {
+            $shouldCreateNewHistory = true;
+        } else {
+            // Check if grade or position changed
+            if ((int)$lastJobHistory->grade_id !== (int)$gradeId || $lastJobHistory->position !== $position) {
+                $shouldCreateNewHistory = true;
+                
+                // End the previous one
+                $endDate = \Carbon\Carbon::parse($data['effective_from'])->subDay()->toDateString();
+                $lastJobHistory->update([
+                    'end_date' => $endDate,
+                    'status' => 'inactive',
+                    'notes' => 'Posisi digantikan pada ' . $data['effective_from']
+                ]);
+            }
+        }
+
+        if ($shouldCreateNewHistory) {
+            $employee->jobHistories()->create([
+                'grade_id' => $gradeId,
+                'position' => $position,
+                'start_date' => $data['effective_from'],
+                'status' => 'active'
+            ]);
+        }
 
         return response()->json([
             'salary_profile' => $profile,
@@ -599,8 +667,24 @@ class EmployeeController extends Controller
         }
 
         $employee->salaryProfiles()->delete();
+        $employee->jobHistories()->delete();
         $employee->delete();
 
         return response()->json(['message' => 'Employee deleted']);
+    }
+
+    public function jobHistories(Request $request, Employee $employee)
+    {
+        $user = $request->user();
+        $role = $this->roleOf($user);
+        $isOwner = $employee->user_id && (int) $employee->user_id === (int) $user->id;
+
+        if (!in_array($role, ['hcga', 'fat', 'director'], true) && !$isOwner) {
+            return $this->forbid();
+        }
+
+        $histories = $employee->jobHistories()->with('grade')->orderBy('start_date', 'desc')->get();
+
+        return response()->json($histories);
     }
 }

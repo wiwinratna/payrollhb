@@ -62,12 +62,19 @@ class DashboardController extends Controller
             ->limit(5)
             ->get(['id', 'employee_code', 'name', 'department', 'position', 'status', 'user_id']);
 
+        $currentMonth = date('Y-m');
+        $pendingRecapsCount = Employee::where('status', 'active')
+            ->whereDoesntHave('monthlyRecaps', function ($q) use ($currentMonth) {
+                $q->where('period_month', $currentMonth)->where('is_finalized', true);
+            })->count();
+
         return response()->json([
             'cards' => [
                 'active' => (int) $activeCount,
                 'inactive' => (int) $inactiveCount,
                 'no_account' => (int) $noAccountCount,
                 'no_salary_profile' => (int) $noSalaryCount,
+                'pending_recap' => (int) $pendingRecapsCount,
             ],
             'lists' => [
                 'no_account' => $noAccountList,

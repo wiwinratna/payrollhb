@@ -278,18 +278,26 @@ class PayrollController extends Controller
         if ($payroll->employee && $canSeeNominal) {
             $prof = $payroll->employee->currentSalaryProfile(optional($payroll->periode)->toDateString());
             if ($prof) {
-                $decBase = \App\Services\CryptoService::decryptAESGCM($prof->base_salary_enc);
+                $decBase = \App\Services\CryptoService::decryptAESGCM($prof->position_allowance_enc);
                 $decMandays = \App\Services\CryptoService::decryptAESGCM($prof->mandays_rate_enc);
                 
                 if ($decBase === null || $decBase === '') {
-                    $decBase = $prof->base_salary > 0 ? (string)$prof->base_salary : ($payroll->employee->grade ? (string)$payroll->employee->grade->default_base_salary : '0');
+                    if ($prof->position_allowance > 0) {
+                        $decBase = (string)$prof->position_allowance;
+                    } else {
+                        $grade = $payroll->employee->grade;
+                        $posRate = $grade ? \App\Models\GradeAllowanceRate::where('grade_id', $grade->id)
+                            ->whereHas('allowanceType', function($q) { $q->where('code', 'position'); })
+                            ->first() : null;
+                        $decBase = $posRate ? (string)$posRate->rate_amount : '0';
+                    }
                 }
                 if ($decMandays === null || $decMandays === '') {
                     $decMandays = $prof->mandays_rate > 0 ? (string)$prof->mandays_rate : ($payroll->employee->grade ? (string)$payroll->employee->grade->default_mandays_rate : '0');
                 }
                 
                 $activeProfile = [
-                    'base_salary' => $decBase,
+                    'position_allowance' => $decBase,
                     'mandays_rate' => $decMandays
                 ];
             }
@@ -350,9 +358,47 @@ class PayrollController extends Controller
             'allowances' => $canSeeNominal ? $payroll->allowances : [],
             'deductions' => $canSeeNominal ? $payroll->deductions : [],
 
-            'mandays_summary' => \App\Models\MonthlyMandaysSummary::where('employee_id', $payroll->employee_id)
+            'mandays_summary' => [
+                'mandays_ho_wfo' => \App\Models\MonthlyRecap::where('employee_id', $payroll->employee_id)
+                    ->where('period_month', optional($payroll->periode)->format('Y-m'))->sum('wfo_days'),
+                'mandays_ho_wfh' => \App\Models\MonthlyRecap::where('employee_id', $payroll->employee_id)
+                    ->where('period_month', optional($payroll->periode)->format('Y-m'))->sum('wfh_days'),
+                'mandays_outside_city' => \App\Models\MonthlyRecap::where('employee_id', $payroll->employee_id)
+                    ->where('period_month', optional($payroll->periode)->format('Y-m'))->sum('out_of_town_days'),
+                'mandays_project' => 0, // deprecated
+                'mandays_training' => \App\Models\MonthlyRecap::where('employee_id', $payroll->employee_id)
+                    ->where('period_month', optional($payroll->periode)->format('Y-m'))->sum('training_days'),
+                'total_mandays' => \App\Models\MonthlyRecap::where('employee_id', $payroll->employee_id)
+                    ->where('period_month', optional($payroll->periode)->format('Y-m'))->sum('total_mandays'),
+            ],
+            
+            'monthly_recaps' => \App\Models\MonthlyRecap::where('employee_id', $payroll->employee_id)
                 ->where('period_month', optional($payroll->periode)->format('Y-m'))
-                ->first(),
+                ->orderBy('id', 'asc')
+                ->get()
+                ->map(function($r) {
+                     $prof = \App\Models\SalaryProfile::find($r->salary_profile_id);
+                     $decBase = $prof ? \App\Services\CryptoService::decryptAESGCM($prof->position_allowance_enc) : null;
+                     $decMandays = $prof ? \App\Services\CryptoService::decryptAESGCM($prof->mandays_rate_enc) : null;
+                     
+                     if ($prof && ($decBase === null || $decBase === '')) {
+                         $decBase = $prof->position_allowance > 0 ? $prof->position_allowance : ($prof->grade ? ($prof->grade->allowanceRates()->whereHas('allowanceType', function($q){$q->where('code','position');})->first()?->rate_amount ?? 0) : 0);
+                     }
+                     if ($prof && ($decMandays === null || $decMandays === '')) {
+                         $decMandays = $prof->mandays_rate > 0 ? $prof->mandays_rate : ($prof->grade ? $prof->grade->default_mandays_rate : 0);
+                     }
+                     
+                     return [
+                         'id' => $r->id,
+                         'wfo_days' => (float)$r->wfo_days,
+                         'wfh_days' => (float)$r->wfh_days,
+                         'total_mandays' => (float)$r->total_mandays,
+                         'mandays_rate' => (float)$decMandays,
+                         'position_allowance' => (float)$decBase,
+                         'grade_name' => $prof && $prof->grade ? $prof->grade->name : '-',
+                         'effective_from' => $prof ? $prof->effective_from->toDateString() : '-',
+                     ];
+                }),
                 
             'active_salary_profile' => $activeProfile,
 

@@ -78,17 +78,19 @@ class TestUserSeeder extends Seeder
             );
 
             // 2. Buat atau perbarui Employee yang terhubung ke user ini
-            //    employee_code unik → pakai sebagai key pencarian
-            Employee::updateOrCreate(
-                ['employee_code' => $account['employee_code']],
-                [
-                    'user_id'    => $user->id,
-                    'name'       => $account['name'],
-                    'department' => $account['department'],
-                    'position'   => $account['position'],
-                    'status'     => 'active', // WAJIB active agar bisa login
-                ]
-            );
+            //    (Hanya untuk STAFF)
+            if ($account['role'] === 'staff') {
+                Employee::updateOrCreate(
+                    ['employee_code' => $account['employee_code']],
+                    [
+                        'user_id'    => $user->id,
+                        'name'       => $account['name'],
+                        'department' => $account['department'],
+                        'position'   => $account['position'],
+                        'status'     => 'active',
+                    ]
+                );
+            }
 
             $this->command->info(
                 "✅ [{$account['role']}] {$account['email']} → OK"

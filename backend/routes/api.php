@@ -64,11 +64,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/payrolls/{payroll}', [PayrollController::class, 'destroy']);
 
     // workflow actions
-    Route::post('/payrolls/{payroll}/recalculate', [PayrollController::class, 'recalculate']);
-    Route::post('/payrolls/{payroll}/request-approval', [PayrollController::class, 'requestApproval']);
-    Route::post('/payrolls/{payroll}/approve', [PayrollController::class, 'approve']);
-    Route::post('/payrolls/{payroll}/reject', [PayrollController::class, 'reject']);
-    Route::post('/payrolls/{payroll}/pay', [PayrollController::class, 'pay']);
+    Route::post('/payrolls/{payroll}/request-approval', [PayrollController::class, 'requestPayment']);
+    Route::post('/payrolls/{payroll}/approve', [PayrollController::class, 'approvePayment']);
+    Route::post('/payrolls/{payroll}/reject', [PayrollController::class, 'rejectPayment']);
+    Route::post('/payrolls/{payroll}/mark-paid', [PayrollController::class, 'markPaid']);
     
     // export
     Route::get('/payrolls/{payroll}/pdf', [PayrollController::class, 'pdf']);
@@ -96,10 +95,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/employees/{employee}', [EmployeeController::class, 'update']);
     Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy']);
 
-    // salary profile
+    // salary profile & job histories
     Route::get('/employees/{employee}/salary-profile', [EmployeeController::class, 'salaryProfile']);
     Route::get('/employees/{employee}/salary-profiles', [EmployeeController::class, 'salaryProfilesList']);
     Route::post('/employees/{employee}/salary-profiles', [EmployeeController::class, 'storeSalaryProfile']);
+    Route::get('/employees/{employee}/job-histories', [EmployeeController::class, 'jobHistories']);
+    Route::post('/employees/{employee}/mutate', [\App\Http\Controllers\Api\MutationController::class, 'store']);
 
     /*
     |--------------------------------------------------------------------------
@@ -140,16 +141,15 @@ Route::middleware('auth:sanctum')->group(function () {
     | PHASE 3: ATTENDANCE, SCHEDULE, PROJECT ASSIGNMENT, MANDAYS SUMMARY
     |--------------------------------------------------------------------------
     */
-    Route::apiResource('projects', \App\Http\Controllers\Api\ProjectController::class);
-    Route::apiResource('project-assignments', \App\Http\Controllers\Api\ProjectAssignmentController::class);
-    Route::apiResource('schedules', \App\Http\Controllers\Api\ScheduleController::class);
-    Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
-
-    Route::get('/mandays-summaries', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'index']);
-    Route::get('/mandays-summaries/{mandaysSummary}', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'show']);
-    Route::post('/mandays-summaries/recalculate', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'recalculate']);
-    Route::post('/mandays-summaries/{mandaysSummary}/finalize', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'finalize']);
-    Route::post('/mandays-summaries/{mandaysSummary}/unfinalize', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'unfinalize']);
+    /*
+    |--------------------------------------------------------------------------
+    | PHASE 3: MONTHLY RECAP (Replaced ERP Modules)
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/monthly-recaps', [\App\Http\Controllers\Api\MonthlyRecapController::class, 'index']);
+    Route::post('/monthly-recaps', [\App\Http\Controllers\Api\MonthlyRecapController::class, 'store']);
+    Route::post('/monthly-recaps/{recap}/finalize', [\App\Http\Controllers\Api\MonthlyRecapController::class, 'finalize']);
+    Route::delete('/monthly-recaps/{recap}', [\App\Http\Controllers\Api\MonthlyRecapController::class, 'destroy']);
 
     /*
     |--------------------------------------------------------------------------

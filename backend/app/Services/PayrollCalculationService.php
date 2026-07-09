@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Employee;
-use App\Models\MonthlyMandaysSummary;
+use App\Models\MonthlyRecap;
 use App\Models\Payroll;
 use App\Models\PayrollAllowance;
 use App\Models\AllowanceType;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
 
 class PayrollCalculationService
 {
-    const ENGINE_VERSION = 'v1.0';
+    const ENGINE_VERSION = 'v2.0';
 
     public function validatePrerequisites($employee, $periodMonth, $ignorePayrollId = null)
     {
@@ -23,42 +23,73 @@ class PayrollCalculationService
         if (!$employee->grade_id) return ['status' => false, 'error' => 'Grade ID kosong.'];
         if (!$employee->employment_type_id) return ['status' => false, 'error' => 'Employment Type kosong.'];
 
-        [$start, $end] = MandaysRecalculationService::getPeriodDates($periodMonth);
-        $profile = $employee->currentSalaryProfile($start->toDateString());
+        $recaps = MonthlyRecap::where('employee_id', $employee->id)->where('period_month', $periodMonth)->get();
+        if ($recaps->isEmpty()) return ['status' => false, 'error' => 'Rekap Bulanan (Monthly Recap) belum diinput.'];
         
-        if (!$profile) return ['status' => false, 'error' => 'Salary profile aktif tidak ditemukan.'];
-        
-        $activeGradeId = $profile->grade_id ?? $employee->grade_id;
-        $grade = $activeGradeId ? \App\Models\Grade::find($activeGradeId) : null;
+        foreach ($recaps as $recap) {
+            if (!$recap->is_finalized) return ['status' => false, 'error' => 'Ada Rekap Bulanan yang belum difinalisasi oleh HCGA.'];
+        }
 
-        // Profile decrypt and fallback
-        $salaryDecrypted = CryptoService::decryptAESGCM($profile->base_salary_enc);
-        if ($salaryDecrypted === null || $salaryDecrypted === '') {
-            if ($profile->base_salary > 0) {
-                $salaryDecrypted = (string)$profile->base_salary;
-            } else {
-                $salaryDecrypted = $grade ? (string)$grade->default_base_salary : '0';
+        // Period logic simplified: just first and last day of the month
+        $start = Carbon::createFromFormat('Y-m', $periodMonth)->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+
+        // Resolve profiles for each recap
+        $profilesData = [];
+        $fallbackProfile = $employee->currentSalaryProfile($start->toDateString());
+        
+        if (!$fallbackProfile && $recaps->contains(fn($r) => !$r->salary_profile_id)) {
+            return ['status' => false, 'error' => 'Salary profile aktif tidak ditemukan untuk sebagian rekap.'];
+        }
+
+        $totalRecapsMandays = 0;
+
+        foreach ($recaps as $recap) {
+            $totalRecapsMandays += $recap->total_mandays;
+            $profile = $recap->salary_profile_id ? \App\Models\SalaryProfile::find($recap->salary_profile_id) : $fallbackProfile;
+            
+            if (!$profile) return ['status' => false, 'error' => 'Salary profile tidak ditemukan untuk rekap tertentu.'];
+
+            $activeGradeId = $profile->grade_id ?? $employee->grade_id;
+            $grade = $activeGradeId ? \App\Models\Grade::find($activeGradeId) : null;
+
+            // Profile decrypt and fallback
+            $positionAllowanceDecrypted = $profile->position_allowance_enc ? CryptoService::decryptAESGCM($profile->position_allowance_enc) : null;
+            if ($positionAllowanceDecrypted === null || $positionAllowanceDecrypted === '') {
+                if ($profile->position_allowance > 0) {
+                    $positionAllowanceDecrypted = (string)$profile->position_allowance;
+                } else {
+                    $posRate = $grade ? \App\Models\GradeAllowanceRate::where('grade_id', $grade->id)
+                        ->whereHas('allowanceType', function($q) { $q->where('code', 'position'); })
+                        ->first() : null;
+                    $positionAllowanceDecrypted = $posRate ? (string)$posRate->rate_amount : '0';
+                }
             }
-        }
 
-        $mandaysDecrypted = $profile->mandays_rate_enc ? CryptoService::decryptAESGCM($profile->mandays_rate_enc) : null;
-        if ($mandaysDecrypted === null || $mandaysDecrypted === '') {
-            if ($profile->mandays_rate > 0) {
-                $mandaysDecrypted = (string)$profile->mandays_rate;
-            } else {
-                $mandaysDecrypted = $grade ? (string)$grade->default_mandays_rate : '0';
+            $mandaysDecrypted = $profile->mandays_rate_enc ? CryptoService::decryptAESGCM($profile->mandays_rate_enc) : null;
+            if ($mandaysDecrypted === null || $mandaysDecrypted === '') {
+                if ($profile->mandays_rate > 0) {
+                    $mandaysDecrypted = (string)$profile->mandays_rate;
+                } else {
+                    $mandaysDecrypted = $grade ? (string)$grade->default_mandays_rate : '0';
+                }
             }
-        }
-        
-        if ($mandaysDecrypted === null || $mandaysDecrypted === '') {
-            return ['status' => false, 'error' => 'Mandays rate kosong.'];
+            
+            if ($mandaysDecrypted === null || $mandaysDecrypted === '') {
+                return ['status' => false, 'error' => 'Mandays rate kosong pada salah satu profile.'];
+            }
+
+            $profilesData[] = [
+                'recap' => $recap,
+                'profile' => [
+                    'position_allowance' => $positionAllowanceDecrypted,
+                    'mandays_rate' => $mandaysDecrypted,
+                    'grade_id' => $activeGradeId
+                ]
+            ];
         }
 
-        $summary = $employee->monthlyMandaysSummaries()->where('period_month', $periodMonth)->first();
-        if (!$summary) return ['status' => false, 'error' => 'Monthly Mandays Summary tidak ada.'];
-        if (!$summary->is_finalized) return ['status' => false, 'error' => 'Summary belum finalized.'];
-
-        $periodeDate = Carbon::createFromFormat('Y-m', $periodMonth)->startOfMonth()->toDateString();
+        $periodeDate = $start->toDateString();
         $existingQ = Payroll::where('employee_id', $employee->id)->where('periode', $periodeDate);
         if ($ignorePayrollId) {
             $existingQ->where('id', '!=', $ignorePayrollId);
@@ -68,12 +99,9 @@ class PayrollCalculationService
 
         return [
             'status' => true,
-            'profile' => [
-                'base_salary' => $salaryDecrypted,
-                'mandays_rate' => $mandaysDecrypted,
-                'grade_id' => $activeGradeId
-            ],
-            'summary' => $summary,
+            'profilesData' => $profilesData,
+            'recaps' => $recaps,
+            'total_mandays' => $totalRecapsMandays, // combined total
             'periodFrom' => $start->toDateString(),
             'periodTo' => $end->toDateString(),
             'periode' => $periodeDate
@@ -92,186 +120,158 @@ class PayrollCalculationService
             ];
         }
 
-        $summary = $prereq['summary'];
-        $profile = $prereq['profile'];
+        $profilesData = $prereq['profilesData'];
+        // Use the last profile as the "primary" profile for single-value references 
+        // (like base position allowance rate for display, though we use prorata for math)
+        $primaryProfileData = end($profilesData);
+        $profile = $primaryProfileData['profile'];
         
         $blocking_warnings = [];
         $non_blocking_warnings = [];
         
-        // 1. Mismatch guard
-        $assignmentMandays = $employee->projectAssignments()->where('period_month', $periodMonth)->sum('mandays');
-        if (round((float)$assignmentMandays, 2) !== round((float)$summary->mandays_project, 2)) {
-            $blocking_warnings[] = 'Mandays project tidak sinkron dengan total assignment (' . $assignmentMandays . ' vs ' . $summary->mandays_project . ')';
-        }
-
         $gaji_pokok = 0;
+        $totalPositionAllowance = 0;
+        
         $isProject = $employee->employmentType->code === 'project';
         $isFixRate = $employee->employmentType->code === 'fix_rate';
         
-        $mandaysRate = (float)$profile['mandays_rate'];
-        $baseSalary = (float)$profile['base_salary'];
-        $activeGradeId = $profile['grade_id'];
+        $gaji_pokok = 0;
+        $accumulatedAllowances = [];
 
-        // Gaji Pokok = Gaji Bulanan Tetap + (Gaji Harian * Kehadiran)
-        $gaji_pokok = $baseSalary + ($mandaysRate * $summary->total_mandays);
-
-        $allowances = [];
-        $total_allowances = 0;
-
-        $getRate = function($typeCode) use ($employee, $activeGradeId) {
-            $type = AllowanceType::where('code', $typeCode)->first();
-            if (!$type) return null;
-            $rate = GradeAllowanceRate::where('grade_id', $activeGradeId)
-                ->where('allowance_type_id', $type->id)
-                ->first();
-            return [
-                'type_id' => $type->id,
-                'type_code' => $type->code,
-                'type_name' => $type->name,
-                'rate' => $rate ? (float)$rate->rate_amount : null
-            ];
+        $addAllowance = function($typeCode, $typeId, $amount, $mandays, $rate, $detail, $gradeName = null) use (&$accumulatedAllowances, $profilesData) {
+            if (!isset($accumulatedAllowances[$typeCode])) {
+                $accumulatedAllowances[$typeCode] = [
+                    'allowance_type_id' => $typeId,
+                    'allowance_type' => $typeCode,
+                    'amount' => 0,
+                    'rate_amount' => count($profilesData) > 1 ? null : $rate, // if prorated, rate is blended
+                    'mandays' => 0,
+                    'calculation_detail' => $detail
+                ];
+                if (count($profilesData) > 1) {
+                    $accumulatedAllowances[$typeCode]['calculation_detail']['is_prorated'] = true;
+                    $accumulatedAllowances[$typeCode]['calculation_detail']['segments'] = [];
+                }
+            } else {
+                // accumulate numeric details
+                foreach ($detail as $k => $v) {
+                    if (is_numeric($v)) {
+                        if (!isset($accumulatedAllowances[$typeCode]['calculation_detail'][$k])) {
+                            $accumulatedAllowances[$typeCode]['calculation_detail'][$k] = 0;
+                        }
+                        $accumulatedAllowances[$typeCode]['calculation_detail'][$k] += $v;
+                    }
+                }
+            }
+            $accumulatedAllowances[$typeCode]['amount'] += $amount;
+            if ($mandays !== null) {
+                $accumulatedAllowances[$typeCode]['mandays'] += $mandays;
+            }
+            if (count($profilesData) > 1 && $amount > 0) {
+                $accumulatedAllowances[$typeCode]['calculation_detail']['segments'][] = [
+                    'grade' => $gradeName,
+                    'amount' => $amount,
+                    'rate' => $rate,
+                    'mandays' => $mandays
+                ];
+            }
         };
 
-        // 3. Transport trip
-        $trTrip = $getRate('transport_trip');
-        if ($trTrip && $trTrip['rate'] !== null) {
-            $amt = $trTrip['rate'] * $summary->num_trips;
-            $allowances[] = [
-                'allowance_type_id' => $trTrip['type_id'],
-                'allowance_type' => $trTrip['type_code'],
-                'amount' => $amt,
-                'rate_amount' => $trTrip['rate'],
-                'mandays' => null,
-                'calculation_detail' => ['num_trips' => $summary->num_trips]
-            ];
-        }
-
-        // 4. Meal
-        $trMeal = $getRate('meal');
-        if ($trMeal && $trMeal['rate'] !== null) {
-            $assignments = $employee->projectAssignments()->where('period_month', $periodMonth)
-                ->whereHas('project', function($q) {
-                    $q->where('is_client_provide_meal', false);
-                })->get();
-            $mealMandays = $assignments->sum('mandays');
-            if ($mealMandays == 0) {
-                $non_blocking_warnings[] = 'Mandays assignment untuk meal allowance bernilai 0.';
+        foreach ($profilesData as $pd) {
+            $r = $pd['recap'];
+            $p = $pd['profile'];
+            $segGradeId = $p['grade_id'];
+            
+            $segGradeName = 'Jabatan';
+            if (isset($p['grade_id'])) {
+                $gr = \App\Models\Grade::find($p['grade_id']);
+                if ($gr) $segGradeName = $gr->name;
             }
-            $amt = $trMeal['rate'] * $mealMandays;
-            $allowances[] = [
-                'allowance_type_id' => $trMeal['type_id'],
-                'allowance_type' => $trMeal['type_code'],
-                'amount' => $amt,
-                'rate_amount' => $trMeal['rate'],
-                'mandays' => $mealMandays,
-                'calculation_detail' => ['project_assignments_mandays' => $mealMandays]
-            ];
-        }
-
-        // 5. Position
-        $trPos = $getRate('position');
-        if ($trPos) {
-            if ($trPos['rate'] === null) {
-                $non_blocking_warnings[] = 'Position allowance rate kosong di grade.';
-            } else {
-                $amt = $trPos['rate'];
+            
+            // 1. Basic Salary
+            $gaji_pokok += (float)$p['mandays_rate'] * (float)$r->total_mandays;
+            
+            // 2. Position Allowance
+            $ratio = $prereq['total_mandays'] > 0 ? ((float)$r->total_mandays / (float)$prereq['total_mandays']) : 0;
+            $segPosAllow = (float)$p['position_allowance'] * $ratio;
+            $trPos = AllowanceType::where('code', 'position')->first();
+            if ($trPos && $segPosAllow > 0) {
+                $amt = $segPosAllow;
                 if ($employee->is_on_probation) {
                     $amt = $amt * 0.5;
                 }
-                $allowances[] = [
-                    'allowance_type_id' => $trPos['type_id'],
-                    'allowance_type' => $trPos['type_code'],
-                    'amount' => $amt,
-                    'rate_amount' => $trPos['rate'],
-                    'mandays' => null,
-                    'calculation_detail' => ['is_on_probation' => $employee->is_on_probation]
-                ];
+                $addAllowance($trPos->code, $trPos->id, $amt, null, $p['position_allowance'], ['is_on_probation' => $employee->is_on_probation], $segGradeName);
             }
-        }
 
-        // 6. Childcare
-        if ($employee->num_toddlers >= 3 && $isProject) {
-            $trChild = $getRate('childcare');
-            if ($trChild) {
-                if ($trChild['rate'] === null) {
+            $getSegRate = function($typeCode) use ($segGradeId) {
+                $type = AllowanceType::where('code', $typeCode)->first();
+                if (!$type) return null;
+                $rate = GradeAllowanceRate::where('grade_id', $segGradeId)
+                    ->where('allowance_type_id', $type->id)
+                    ->first();
+                return [
+                    'type_id' => $type->id,
+                    'type_code' => $type->code,
+                    'rate' => $rate ? (float)$rate->rate_amount : null
+                ];
+            };
+
+            // 3. Transport trip
+            $trTrip = $getSegRate('transport_trip');
+            if ($trTrip && $trTrip['rate'] !== null && $r->business_trips > 0) {
+                $amt = $trTrip['rate'] * $r->business_trips;
+                $addAllowance($trTrip['type_code'], $trTrip['type_id'], $amt, null, $trTrip['rate'], ['num_trips' => $r->business_trips], $segGradeName);
+            }
+
+            // 4. Meal
+            $trMeal = $getSegRate('meal');
+            if ($trMeal && $trMeal['rate'] !== null && $r->total_mandays > 0) {
+                $amt = $trMeal['rate'] * $r->total_mandays;
+                $addAllowance($trMeal['type_code'], $trMeal['type_id'], $amt, $r->total_mandays, $trMeal['rate'], ['total_mandays' => $r->total_mandays], $segGradeName);
+            }
+
+            // 5. Childcare
+            if ($employee->num_toddlers >= 3) {
+                $trChild = $getSegRate('childcare');
+                if ($trChild && $trChild['rate'] !== null) {
+                    $amt = $trChild['rate'] * $ratio; // prorate childcare by days
+                    $addAllowance($trChild['type_code'], $trChild['type_id'], $amt, null, $trChild['rate'], ['num_toddlers' => $employee->num_toddlers], $segGradeName);
+                } else if ($trChild && $trChild['rate'] === null) {
                     $non_blocking_warnings[] = 'Childcare allowance rate kosong padahal num_toddlers >= 3.';
-                } else {
-                    $amt = $trChild['rate'];
-                    $allowances[] = [
-                        'allowance_type_id' => $trChild['type_id'],
-                        'allowance_type' => $trChild['type_code'],
-                        'amount' => $amt,
-                        'rate_amount' => $trChild['rate'],
-                        'mandays' => null,
-                        'calculation_detail' => ['num_toddlers' => $employee->num_toddlers]
-                    ];
                 }
             }
-        }
 
-        // 7. Training
-        if ($employee->is_trainer && $summary->mandays_training > 0) {
-            if (empty($mandaysRate)) {
-                $blocking_warnings[] = 'Mandays rate kosong, dibutuhkan untuk hitung allowance training.';
-            } else {
+            // 6. Training
+            if ($employee->is_trainer && $r->training_days > 0) {
                 $trTrain = AllowanceType::where('code', 'training')->first();
-                $amt = $mandaysRate * 1.5 * $summary->mandays_training;
-                $allowances[] = [
-                    'allowance_type_id' => $trTrain->id,
-                    'allowance_type' => $trTrain->code,
-                    'amount' => $amt,
-                    'rate_amount' => null,
-                    'mandays' => $summary->mandays_training,
-                    'calculation_detail' => ['multiplier' => 1.5, 'mandays_rate' => $mandaysRate]
-                ];
+                $amt = (float)$p['mandays_rate'] * 1.5 * $r->training_days;
+                $addAllowance($trTrain->code, $trTrain->id, $amt, $r->training_days, null, ['multiplier' => 1.5, 'mandays_rate' => $p['mandays_rate']], $segGradeName);
+            }
+
+            // 7. Business Trip
+            $trBTrip = $getSegRate('business_trip');
+            if ($trBTrip && $trBTrip['rate'] !== null && $r->out_of_town_days > 0) {
+                $amt = $trBTrip['rate'] * $r->out_of_town_days;
+                $addAllowance($trBTrip['type_code'], $trBTrip['type_id'], $amt, $r->out_of_town_days, $trBTrip['rate'], ['out_of_town_days' => $r->out_of_town_days], $segGradeName);
+            }
+
+            // 8. Transport (WFO)
+            $trHO = $getSegRate('ho_transport_meal');
+            if ($trHO && $trHO['rate'] !== null && $r->wfo_days > 0) {
+                $amt = $trHO['rate'] * $r->wfo_days;
+                $addAllowance($trHO['type_code'], $trHO['type_id'], $amt, $r->wfo_days, $trHO['rate'], ['wfo_days' => $r->wfo_days], $segGradeName);
+            }
+
+            // 9. Transport Insurance
+            $trIns = $getSegRate('transport_insurance');
+            if ($trIns && $trIns['rate'] !== null && $r->wfo_days > 0) {
+                $amt = $trIns['rate'] * $r->wfo_days;
+                $addAllowance($trIns['type_code'], $trIns['type_id'], $amt, $r->wfo_days, $trIns['rate'], ['wfo_days' => $r->wfo_days], $segGradeName);
             }
         }
 
-        // 8. Business Trip
-        if ($isFixRate) {
-            $trBTrip = $getRate('business_trip');
-            if ($trBTrip && $trBTrip['rate'] !== null) {
-                $amt = $trBTrip['rate'] * $summary->mandays_outside_city;
-                $allowances[] = [
-                    'allowance_type_id' => $trBTrip['type_id'],
-                    'allowance_type' => $trBTrip['type_code'],
-                    'amount' => $amt,
-                    'rate_amount' => $trBTrip['rate'],
-                    'mandays' => $summary->mandays_outside_city,
-                    'calculation_detail' => ['mandays_outside_city' => $summary->mandays_outside_city]
-                ];
-            }
-
-            // 9. HO Transport Meal
-            $trHO = $getRate('ho_transport_meal');
-            if ($trHO && $trHO['rate'] !== null) {
-                // Biasanya transport & makan HO hanya untuk WFO
-                $mdHO = $summary->mandays_ho_wfo;
-                $amt = $trHO['rate'] * $mdHO;
-                $allowances[] = [
-                    'allowance_type_id' => $trHO['type_id'],
-                    'allowance_type' => $trHO['type_code'],
-                    'amount' => $amt,
-                    'rate_amount' => $trHO['rate'],
-                    'mandays' => $mdHO,
-                    'calculation_detail' => ['mandays_ho_wfo' => $summary->mandays_ho_wfo]
-                ];
-            }
-        }
-
-        // 10. Transport Insurance
-        $trIns = $getRate('transport_insurance');
-        if ($trIns && $trIns['rate'] !== null) {
-            $amt = $trIns['rate'] * $summary->mandays_project;
-            $allowances[] = [
-                'allowance_type_id' => $trIns['type_id'],
-                'allowance_type' => $trIns['type_code'],
-                'amount' => $amt,
-                'rate_amount' => $trIns['rate'],
-                'mandays' => $summary->mandays_project,
-                'calculation_detail' => ['mandays_project' => $summary->mandays_project]
-            ];
-        }
+        $allowances = array_values($accumulatedAllowances);
+        $total_allowances = 0;
 
         foreach ($allowances as $al) {
             $total_allowances += $al['amount'];
@@ -298,20 +298,20 @@ class PayrollCalculationService
             'total_nett' => $total_nett,
             'calculation_mode' => 'auto',
             'engine_version' => self::ENGINE_VERSION,
-            'message' => 'PPh 21 dan BPJS belum dihitung (Masuk Phase 5).'
+            'message' => 'PPh 21 dan BPJS belum dihitung.'
         ];
     }
 
     public function calculatePreview($employeeId, $periodMonth)
     {
-        $employee = Employee::with(['employmentType', 'workBasis', 'projectAssignments.project'])->find($employeeId);
+        $employee = Employee::with(['employmentType', 'workBasis'])->find($employeeId);
         if (!$employee) return ['is_calculable' => false, 'prerequisite_status' => false, 'blocking_warnings' => ['Employee not found']];
         return $this->runEngine($employee, $periodMonth);
     }
 
     public function calculateAndSave($employeeId, $periodMonth, $recordedBy)
     {
-        $employee = Employee::with(['employmentType', 'workBasis', 'projectAssignments.project'])->find($employeeId);
+        $employee = Employee::with(['employmentType', 'workBasis'])->find($employeeId);
         if (!$employee) throw new \Exception("Employee not found");
         
         $res = $this->runEngine($employee, $periodMonth);
@@ -359,7 +359,7 @@ class PayrollCalculationService
                     'mandays' => $al['mandays'],
                     'amount' => $al['amount'],
                     'amount_enc' => CryptoService::encryptAESGCM((string)round($al['amount'])),
-                    'calculation_detail' => json_encode($al['calculation_detail']),
+                    'calculation_detail' => $al['calculation_detail'],
                     'salary_alg' => 'AES'
                 ]);
             }
@@ -437,7 +437,7 @@ class PayrollCalculationService
                         'mandays' => $al['mandays'],
                         'amount' => $al['amount'],
                         'amount_enc' => CryptoService::encryptAESGCM((string)round($al['amount'])),
-                        'calculation_detail' => json_encode($al['calculation_detail']),
+                        'calculation_detail' => $al['calculation_detail'],
                         'salary_alg' => 'AES'
                     ]);
                 }
@@ -481,13 +481,6 @@ class PayrollCalculationService
 
         $employee = $payroll->employee;
         $pm = Carbon::parse($payroll->period_from)->format('Y-m');
-        if (Carbon::parse($payroll->period_from)->day < 28) {
-            // meaning it was standard month, maybe handle edge case, 
-            // wait: 2026-05-28 -> 2026-06. Carbon::parse(2026-05-28)->day >= 28.
-            $pm = Carbon::parse($payroll->period_from)->addMonth()->format('Y-m');
-        } else {
-            $pm = Carbon::parse($payroll->period_from)->addMonth()->format('Y-m'); // 28th May -> Jun
-        }
         
         $res = $this->runEngine($employee, $pm, $payroll->id);
         if (!$res['is_calculable']) throw new \Exception("Cannot recalculate: " . implode(', ', $res['blocking_warnings']));
@@ -523,7 +516,7 @@ class PayrollCalculationService
                     'mandays' => $al['mandays'],
                     'amount' => $al['amount'],
                     'amount_enc' => CryptoService::encryptAESGCM((string)round($al['amount'])),
-                    'calculation_detail' => json_encode($al['calculation_detail']),
+                    'calculation_detail' => $al['calculation_detail'],
                     'salary_alg' => 'AES'
                 ]);
             }
