@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             AllowanceTypeSeeder::class,
             GradeAllowanceRateSeeder::class,
             TestUserSeeder::class,
+            ChartOfAccountSeeder::class,
         ]);
     }
 }

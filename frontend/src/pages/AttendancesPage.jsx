@@ -30,6 +30,7 @@ export default function AttendancesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [form, setForm] = useState({
     employee_id: "",
@@ -68,6 +69,17 @@ export default function AttendancesPage() {
     loadData();
   }, []);
 
+  const formatTimeForInput = (dt) => {
+    if (!dt) return "";
+    try {
+      const parts = dt.split(" ");
+      if (parts.length === 2) return parts[1].substring(0, 5);
+      return dt.substring(0, 5);
+    } catch (e) {
+      return "";
+    }
+  };
+
   const openAddModal = () => {
     setForm({
       employee_id: "",
@@ -81,6 +93,7 @@ export default function AttendancesPage() {
       notes: "",
     });
     setIsEdit(false);
+    setErr("");
     setModalOpen(true);
   };
 
@@ -91,20 +104,23 @@ export default function AttendancesPage() {
       attendance_type: r.attendance_type || "ho_wfo",
       project_id: r.project_id || "",
       schedule_id: r.schedule_id || "",
-      check_in: r.check_in || "",
-      check_out: r.check_out || "",
+      check_in: formatTimeForInput(r.check_in),
+      check_out: formatTimeForInput(r.check_out),
       overtime_hours: r.overtime_hours ?? "",
       notes: r.notes || "",
     });
     setEditId(r.id);
     setIsEdit(true);
+    setErr("");
     setModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setErr("");
     setSuccess("");
+    setIsSubmitting(true);
     try {
       const payload = {
         employee_id: Number(form.employee_id),
@@ -112,9 +128,9 @@ export default function AttendancesPage() {
         attendance_type: form.attendance_type,
         project_id: form.attendance_type === "project" ? Number(form.project_id) : null,
         schedule_id: form.schedule_id ? Number(form.schedule_id) : null,
-        check_in: form.check_in || null,
-        check_out: form.check_out || null,
-        overtime_hours: form.overtime_hours === "" ? null : Number(form.overtime_hours),
+        check_in: form.check_in ? `${form.attendance_date} ${form.check_in}:00` : null,
+        check_out: form.check_out ? `${form.attendance_date} ${form.check_out}:00` : null,
+        overtime_hours: form.overtime_hours === "" || form.overtime_hours == null ? 0 : Number(form.overtime_hours),
         notes: form.notes,
       };
 
@@ -135,6 +151,8 @@ export default function AttendancesPage() {
       loadData();
     } catch (err) {
       setErr(err?.message || err?.data?.message || "Gagal menyimpan attendance");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -164,21 +182,16 @@ export default function AttendancesPage() {
   };
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
-        <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
-      </div>
-
+    <div>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">Phase 3</span>
+              <span className="text-[10px] font-semibold text-muted-foreground">Phase 3</span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-4 text-lg font-semibold text-foreground">
               Attendances
             </h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -191,14 +204,14 @@ export default function AttendancesPage() {
               variant="outline"
               onClick={loadData}
               disabled={loading}
-              className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+              className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
             {isHCGA && (
               <Button
                 onClick={openAddModal}
-                className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
               >
                 + Add Attendance
               </Button>
@@ -207,20 +220,20 @@ export default function AttendancesPage() {
         </div>
 
         {err && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {err}
           </div>
         )}
 
         {success && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-600 border border-emerald-100">
             {success}
           </div>
         )}
 
-        <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-900">Attendance List</span>
+        <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Attendance List</span>
             <span className="text-xs text-slate-500">
               {loading ? "Memuat..." : `${rows.length} attendances`}
             </span>
@@ -318,20 +331,26 @@ export default function AttendancesPage() {
 
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-            <div className="w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 relative my-8">
-              <h2 className="text-xl font-black text-slate-900 mb-4">
+            <div className="bg-white border border-border rounded shadow-sm p-4 my-4 max-w-2xl w-full">
+              <h2 className="text-lg font-semibold text-foreground mb-4">
                 {isEdit ? "Edit Attendance" : "Add New Attendance"}
               </h2>
+
+              {err && (
+                <div className="mb-4 rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
+                  {err}
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Employee</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Employee</label>
                     <select
                       value={form.employee_id}
                       onChange={(e) => setForm({ ...form, employee_id: e.target.value })}
                       required
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     >
                       <option value="">-- Pilih Employee --</option>
                       {employees.map((emp) => (
@@ -343,25 +362,25 @@ export default function AttendancesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Attendance Date</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Attendance Date</label>
                     <input
                       type="date"
                       value={form.attendance_date}
                       onChange={(e) => setForm({ ...form, attendance_date: e.target.value })}
                       required
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Attendance Type</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Attendance Type</label>
                     <select
                       value={form.attendance_type}
                       onChange={(e) => setForm({ ...form, attendance_type: e.target.value })}
                       required
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     >
                       <option value="project">Project</option>
                       <option value="ho_wfo">HO WFO</option>
@@ -376,12 +395,12 @@ export default function AttendancesPage() {
 
                   {form.attendance_type === "project" && (
                     <div>
-                      <label className="block text-sm font-semibold text-slate-800 mb-1">Project</label>
+                      <label className="block text-xs font-semibold text-slate-800 mb-1">Project</label>
                       <select
                         value={form.project_id}
                         onChange={(e) => setForm({ ...form, project_id: e.target.value })}
                         required={form.attendance_type === "project"}
-                        className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                        className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                       >
                         <option value="">-- Pilih Project --</option>
                         {projects.map((proj) => (
@@ -396,11 +415,11 @@ export default function AttendancesPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Schedule ID (Opsional)</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Schedule ID (Opsional)</label>
                     <select
                       value={form.schedule_id}
                       onChange={(e) => setForm({ ...form, schedule_id: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     >
                       <option value="">-- Tidak Terhubung Jadwal --</option>
                       {schedules.filter(s => s.employee_id == form.employee_id && s.schedule_date == form.attendance_date).map((sch) => (
@@ -411,45 +430,45 @@ export default function AttendancesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Overtime Hours (Opsional)</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Overtime Hours (Opsional)</label>
                     <input
                       type="number"
                       step="0.5"
                       value={form.overtime_hours}
                       onChange={(e) => setForm({ ...form, overtime_hours: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Check In (Opsional)</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Check In (Opsional)</label>
                     <input
                       type="time"
                       value={form.check_in}
                       onChange={(e) => setForm({ ...form, check_in: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Check Out (Opsional)</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Check Out (Opsional)</label>
                     <input
                       type="time"
                       value={form.check_out}
                       onChange={(e) => setForm({ ...form, check_out: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">Notes</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">Notes</label>
                   <textarea
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     rows="2"
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
@@ -458,15 +477,17 @@ export default function AttendancesPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setModalOpen(false)}
-                    className="rounded-2xl border-slate-200 hover:bg-slate-50"
+                    disabled={isSubmitting}
+                    className="px-4 py-1.5 bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                    disabled={isSubmitting}
+                    className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
-                    Save Attendance
+                    {isSubmitting ? "Saving..." : "Save Attendance"}
                   </Button>
                 </div>
               </form>

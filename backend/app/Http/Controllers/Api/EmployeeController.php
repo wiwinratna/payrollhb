@@ -321,7 +321,6 @@ class EmployeeController extends Controller
             // Phase 1 fields:
             'grade_id' => ['nullable', 'exists:grades,id'],
             'employment_type_id' => ['nullable', 'exists:employment_types,id'],
-            'work_basis_id' => ['nullable', 'exists:work_bases,id'],
             'num_toddlers' => ['nullable', 'integer', 'min:0'],
             'is_trainer' => ['nullable', 'boolean'],
             'is_on_probation' => ['nullable', 'boolean'],
@@ -351,9 +350,79 @@ class EmployeeController extends Controller
 
         $employee = Employee::create($data);
 
+        // Auto-generate default salary profile based on selected Grade
+        if ($employee->grade_id) {
+            \App\Models\SalaryProfile::create([
+                'employee_id' => $employee->id,
+                'grade_id' => $employee->grade_id,
+                'position' => $employee->position,
+                'base_salary' => 0, 
+                'mandays_rate' => 0, 
+                'allowance_fixed' => 0,
+                'deduction_fixed' => 0,
+                'effective_from' => date('Y-m-01'),
+                'pii_alg' => $employee->pii_alg,
+                'pii_key_id' => $employee->pii_key_id,
+            ]);
+        }
+
         return response()->json([
-            'employee' => $employee->fresh(['grade', 'employmentType', 'workBasis']),
+            'employee' => $employee->fresh(['grade', 'employmentType', 'workBasis', 'salaryProfiles']),
         ], 201);
+    }
+
+    public function salaryProfilesList(Request $request, Employee $employee)
+    {
+        $user = $request->user();
+        $role = $this->roleOf($user);
+        $isOwner = $employee->user_id && (int) $employee->user_id === (int) $user->id;
+
+        if (!in_array($role, ['hcga', 'fat', 'director'], true) && !$isOwner) {
+            return $this->forbid();
+        }
+
+        $profiles = $employee->salaryProfiles()->orderBy('effective_from', 'desc')->get();
+        $employeeGrade = $employee->grade;
+
+        $results = $profiles->map(function ($p) use ($employeeGrade) {
+            $alg = strtoupper((string) ($p->salary_alg ?? 'AES'));
+            
+            $baseVal = $p->base_salary_enc ? CryptoService::decryptByAlg($p->base_salary_enc, $alg) : null;
+            $allow = $p->allowance_fixed_enc ? (float) CryptoService::decryptByAlg($p->allowance_fixed_enc, $alg) : (float) $p->allowance_fixed;
+            $ded   = $p->deduction_fixed_enc ? (float) CryptoService::decryptByAlg($p->deduction_fixed_enc, $alg) : (float) $p->deduction_fixed;
+
+            $effectiveGradeId = $p->grade_id ?? null;
+            $grade = $effectiveGradeId ? \App\Models\Grade::find($effectiveGradeId) : $employeeGrade;
+            
+            $is_using_default_base = false;
+            if ($baseVal === null || $baseVal === '') {
+                if ($p->base_salary > 0) {
+                    $base = (float)$p->base_salary;
+                    $is_using_default_base = false;
+                } else {
+                    $base = $grade ? (float)$grade->default_base_salary : 0.0;
+                    $is_using_default_base = true;
+                }
+            } else {
+                $base = (float)$baseVal;
+                $is_using_default_base = false;
+            }
+
+            return [
+                'id' => $p->id,
+                'effective_from' => $p->effective_from->toDateString(),
+                'grade_id' => $effectiveGradeId,
+                'position' => $p->position,
+                'base_salary' => (string) $base,
+                'allowance_fixed' => (string) $allow,
+                'deduction_fixed' => (string) $ded,
+                'is_using_default_base' => $is_using_default_base,
+                'suggested_total' => (string) ($base + $allow - $ded),
+                'created_at' => $p->created_at->toISOString(),
+            ];
+        });
+
+        return response()->json($results);
     }
 
     public function storeSalaryProfile(Request $request, Employee $employee)
@@ -462,7 +531,6 @@ class EmployeeController extends Controller
             // Phase 1 fields:
             'grade_id' => ['sometimes', 'nullable', 'exists:grades,id'],
             'employment_type_id' => ['sometimes', 'nullable', 'exists:employment_types,id'],
-            'work_basis_id' => ['sometimes', 'nullable', 'exists:work_bases,id'],
             'num_toddlers' => ['sometimes', 'integer', 'min:0'],
             'is_trainer' => ['sometimes', 'boolean'],
             'is_on_probation' => ['sometimes', 'boolean'],

@@ -6,6 +6,7 @@ import { getUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import EmployeeHistoryHub from "@/components/EmployeeHistoryHub";
 
 function StatusBadge({ status }) {
   const s = String(status || "").toLowerCase();
@@ -69,6 +70,7 @@ export default function EmployeeDetailPage() {
 
   // local toggle untuk masking UI
   const [reveal, setReveal] = useState(false);
+  const [activeTab, setActiveTab] = useState("info");
 
   useEffect(() => {
     let mounted = true;
@@ -154,7 +156,7 @@ export default function EmployeeDetailPage() {
   }, [emp, hasAccount, isHCGA]);
 
   return (
-    <div className="relative">
+    <div>
       {/* soft background */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/45 blur-3xl" />
@@ -165,14 +167,14 @@ export default function EmployeeDetailPage() {
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">
+              <span className="text-[10px] font-semibold text-muted-foreground">
                 Human Plus Institute
               </span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-4 text-lg font-semibold text-foreground">
               Employee Detail
             </h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -183,7 +185,7 @@ export default function EmployeeDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
-              className="rounded-2xl bg-white/70 border-slate-200 hover:bg-white"
+              className="rounded bg-white/70 border-slate-200 hover:bg-white"
               onClick={() => nav(-1)}
             >
               Back
@@ -192,32 +194,50 @@ export default function EmployeeDetailPage() {
             {isHCGA && (
               <Button
                 variant="outline"
-                className="rounded-2xl border-slate-200 bg-white hover:bg-slate-50"
+                className="rounded border-slate-200 bg-white hover:bg-slate-50"
                 onClick={() => nav(`/employees/${id}/edit`)}
               >
                 Edit
               </Button>
             )}
 
-            {isHCGA && (
-              <Button
-                className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
-                onClick={() => nav(`/employees/${id}/salary-profile/new`)}
-              >
-                Set Salary
-              </Button>
-            )}
+            {/* Set Salary button removed */}
           </div>
         </div>
 
         {err && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {err}
           </div>
         )}
 
-        <Card className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)]">
-          <CardHeader>
+        {/* TABS */}
+        <div className="flex space-x-1 border-b border-slate-200">
+          <button
+            onClick={() => setActiveTab("info")}
+            className={`px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 ${
+              activeTab === "info"
+                ? "border-indigo-600 text-indigo-700 bg-indigo-50/50"
+                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+            }`}
+          >
+            Profil & Informasi Dasar
+          </button>
+          <button
+            onClick={() => setActiveTab("history")}
+            className={`px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 ${
+              activeTab === "history"
+                ? "border-indigo-600 text-indigo-700 bg-indigo-50/50"
+                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+            }`}
+          >
+            Riwayat Gaji & Jabatan
+          </button>
+        </div>
+
+        {activeTab === "info" && (
+          <Card className="bg-white border border-border rounded shadow-sm">
+            <CardHeader>
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <CardTitle className="text-base">Employee Information</CardTitle>
 
@@ -227,7 +247,7 @@ export default function EmployeeDetailPage() {
                 {canToggleSensitive && (
                   <Button
                     variant="outline"
-                    className="rounded-2xl border-slate-200 bg-white hover:bg-slate-50"
+                    className="rounded border-slate-200 bg-white hover:bg-slate-50"
                     onClick={() => setReveal((v) => !v)}
                   >
                     {reveal ? "Hide Sensitive" : "Show Sensitive"}
@@ -239,9 +259,9 @@ export default function EmployeeDetailPage() {
 
           <CardContent>
             {loading ? (
-              <p className="text-sm text-slate-500">Loading...</p>
+              <p className="text-xs text-muted-foreground">Loading...</p>
             ) : !emp ? (
-              <p className="text-sm text-slate-500">Data tidak ditemukan.</p>
+              <p className="text-xs text-muted-foreground">Data tidak ditemukan.</p>
             ) : (
               <div className="space-y-8">
                 {/* basic */}
@@ -342,7 +362,7 @@ export default function EmployeeDetailPage() {
                   </h3>
 
                   {masked && (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                       Info sensitif disembunyikan (akses terbatas).
                     </div>
                   )}
@@ -376,6 +396,11 @@ export default function EmployeeDetailPage() {
             )}
           </CardContent>
         </Card>
+        )}
+
+        {activeTab === "history" && (
+          <EmployeeHistoryHub employeeId={id} employeeName={emp?.name} />
+        )}
       </div>
     </div>
   );
@@ -387,7 +412,7 @@ function Field({ label, value, full, mono }) {
       <div className="text-xs font-medium text-slate-600">{label}</div>
       <div
         className={[
-          "rounded-2xl border border-slate-200 bg-white/70 px-4 py-3 text-sm text-slate-900",
+          "bg-white border border-border rounded shadow-sm px-4 py-3 text-sm text-slate-900",
           mono ? "font-mono" : "font-semibold",
         ].join(" ")}
       >

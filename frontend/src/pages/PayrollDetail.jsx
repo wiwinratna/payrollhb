@@ -44,9 +44,9 @@ function monthLabel(yyyyMM) {
 
 function Field({ label, value }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
+    <div className="bg-white border border-border rounded shadow-sm px-4 py-3">
       <div className="text-[11px] text-slate-500">{label}</div>
-      <div className="mt-0.5 text-sm font-semibold text-slate-900">
+      <div className="mt-0.5 text-sm font-medium text-foreground">
         {value ?? "-"}
       </div>
     </div>
@@ -117,7 +117,7 @@ export default function PayrollDetail() {
   }, [data]);
 
   return (
-    <div className="relative">
+    <div>
       {/* soft background selaras halaman lain */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
@@ -129,15 +129,15 @@ export default function PayrollDetail() {
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">
+              <span className="text-[10px] font-semibold text-muted-foreground">
                 Human Plus Institute
               </span>
             </div>
 
             <div className="mt-4 flex items-center gap-3">
-              <h1 className="text-3xl font-black tracking-tight text-slate-900">
+              <h1 className="text-lg font-semibold text-foreground">
                 Payroll Detail
               </h1>
               {!loading && data && <StatusBadge masked={view.masked} />}
@@ -152,7 +152,7 @@ export default function PayrollDetail() {
             <Button
               variant="outline"
               onClick={() => navigate(-1)}
-              className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+              className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               Back
             </Button>
@@ -161,14 +161,14 @@ export default function PayrollDetail() {
 
         {/* Loading */}
         {loading && (
-          <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] px-6 py-6 text-sm text-slate-500">
+          <div className="bg-white border border-border rounded shadow-sm px-6 py-6 text-xs text-muted-foreground">
             Loading...
           </div>
         )}
 
         {/* Error */}
         {!loading && err && (
-          <div className="rounded-3xl border border-rose-200 bg-rose-50 px-6 py-5 text-sm text-rose-700">
+          <div className="bg-white border border-border rounded shadow-sm p-4 my-4">
             <div className="font-bold text-rose-800 mb-1">Tidak bisa akses data</div>
             {err}
           </div>
@@ -176,10 +176,10 @@ export default function PayrollDetail() {
 
         {/* Content */}
         {!loading && data && (
-          <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-200/70 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200/70 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-sm font-semibold text-slate-900">
+                <div className="text-sm font-medium text-foreground">
                   {view.title}
                 </div>
                 <div className="text-xs text-slate-500">
@@ -192,7 +192,7 @@ export default function PayrollDetail() {
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="Periode" value={view.periodeLabel} />
                 <Field label="Catatan" value={view.catatan} />
@@ -202,12 +202,12 @@ export default function PayrollDetail() {
 
                 <Field label="Potongan" value={view.potongan} />
 
-                <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-sky-50 to-indigo-50 px-4 py-3">
+                <div className="rounded border border-slate-200 bg-gradient-to-r from-sky-50 to-indigo-50 px-4 py-3">
                   <div className="text-[11px] text-slate-500">Total</div>
                   <div className="mt-0.5 text-base font-extrabold text-slate-900">
                     {view.total}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
+                  <div className="text-[11px] text-[10px] text-muted-foreground mt-0.5">
                     Total = gaji pokok + tunjangan − potongan
                   </div>
                 </div>

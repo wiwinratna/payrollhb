@@ -147,21 +147,16 @@ export default function ProjectAssignmentsPage() {
   };
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
-        <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
-      </div>
-
+    <div>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">Phase 3</span>
+              <span className="text-[10px] font-semibold text-muted-foreground">Phase 3</span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-4 text-lg font-semibold text-foreground">
               Project Assignments
             </h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -174,14 +169,14 @@ export default function ProjectAssignmentsPage() {
               variant="outline"
               onClick={loadData}
               disabled={loading}
-              className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+              className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
             {isHCGA && (
               <Button
                 onClick={openAddModal}
-                className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
               >
                 + Add Assignment
               </Button>
@@ -190,20 +185,20 @@ export default function ProjectAssignmentsPage() {
         </div>
 
         {err && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {err}
           </div>
         )}
 
         {success && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-600 border border-emerald-100">
             {success}
           </div>
         )}
 
-        <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-900">Assignment List</span>
+        <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Assignment List</span>
             <span className="text-xs text-slate-500">
               {loading ? "Memuat..." : `${rows.length} assignments`}
             </span>
@@ -255,7 +250,7 @@ export default function ProjectAssignmentsPage() {
                         <TableCell className="pl-6 py-4 font-bold text-sky-700">
                           {r.employee?.name || getEmpName(r.employee_id)}
                         </TableCell>
-                        <TableCell className="font-semibold text-slate-900 py-4">
+                        <TableCell className="font-medium text-foreground py-4">
                           {r.project?.name || getProjName(r.project_id)}
                         </TableCell>
                         <TableCell className="text-slate-600 py-4">
@@ -299,19 +294,19 @@ export default function ProjectAssignmentsPage() {
 
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-            <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 relative my-8">
+            <div className="bg-white border border-border rounded shadow-sm p-4 my-4">
               <h2 className="text-xl font-black text-slate-900 mb-4">
                 {isEdit ? "Edit Assignment" : "Add New Assignment"}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">Employee</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">Employee</label>
                   <select
                     value={form.employee_id}
                     onChange={(e) => setForm({ ...form, employee_id: e.target.value })}
                     required
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   >
                     <option value="">-- Pilih Employee --</option>
                     {employees.map((emp) => (
@@ -323,12 +318,12 @@ export default function ProjectAssignmentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">Project</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">Project</label>
                   <select
                     value={form.project_id}
                     onChange={(e) => setForm({ ...form, project_id: e.target.value })}
                     required
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   >
                     <option value="">-- Pilih Project --</option>
                     {projects.map((proj) => (
@@ -340,45 +335,45 @@ export default function ProjectAssignmentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">Period Month</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">Period Month</label>
                   <input
                     type="month"
                     value={form.period_month}
                     onChange={(e) => setForm({ ...form, period_month: e.target.value })}
                     required
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Mandays (Opsional)</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Mandays (Opsional)</label>
                     <input
                       type="number"
                       step="0.5"
                       value={form.mandays}
                       onChange={(e) => setForm({ ...form, mandays: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Num Trips (Opsional)</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Num Trips (Opsional)</label>
                     <input
                       type="number"
                       value={form.num_trips}
                       onChange={(e) => setForm({ ...form, num_trips: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">Notes</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">Notes</label>
                   <textarea
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     rows="2"
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
@@ -387,13 +382,13 @@ export default function ProjectAssignmentsPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setModalOpen(false)}
-                    className="rounded-2xl border-slate-200 hover:bg-slate-50"
+                    className="px-4 py-1.5 bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                    className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                   >
                     Save Assignment
                   </Button>

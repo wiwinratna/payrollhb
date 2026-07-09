@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Calendar, Play, CheckCircle2, XCircle, ChevronRight } from "lucide-react";
 
 export default function PayrollBatchPage() {
   const navigate = useNavigate();
@@ -36,97 +37,116 @@ export default function PayrollBatchPage() {
   };
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
+    <div>
+      <div className="flex items-start justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Batch Generate Auto Payroll</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-lg font-semibold text-foreground">Batch Generate Auto Payroll</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
             Hitung massal payroll karyawan mode auto untuk periode tertentu.
           </p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <form onSubmit={handleGenerate} className="flex items-end gap-4">
+      <div className="bg-white border border-border rounded p-4 mb-4" style={{ boxShadow: "0 1px 4px 0 rgba(0,0,0,0.04)" }}>
+        <form onSubmit={handleGenerate} className="flex flex-col md:flex-row md:items-end gap-3 max-w-2xl">
           <div className="flex-1">
-            <label className="block text-sm font-semibold text-slate-700 mb-1">
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5">
               Period Month (YYYY-MM) <span className="text-red-500">*</span>
             </label>
-            <input
-              type="month"
-              value={periodMonth}
-              onChange={(e) => setPeriodMonth(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              required
-            />
+            <div>
+              <Calendar size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="month"
+                value={periodMonth}
+                onChange={(e) => setPeriodMonth(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-border rounded bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all placeholder:text-muted-foreground"
+                required
+              />
+            </div>
           </div>
-          <Button type="submit" disabled={isLoading} className="mb-0.5">
+          <button 
+            type="submit" 
+            disabled={isLoading}
+            className="flex items-center justify-center gap-1.5 px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            <Play size={11} fill="currentColor" />
             {isLoading ? "Generating..." : "Generate Batch"}
-          </Button>
+          </button>
         </form>
-        {error && <div className="mt-4 text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">{error}</div>}
+        {error && (
+          <div className="mt-4 rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100 max-w-2xl">
+            {error}
+          </div>
+        )}
       </div>
 
       {results && (
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-2xl">
           <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-green-200 bg-green-50 p-6 shadow-sm text-center">
-              <div className="text-sm font-semibold text-green-700">Total Success</div>
-              <div className="text-3xl font-bold text-green-800 mt-2">{results.total_success}</div>
+            <div className="bg-white border border-border rounded p-4 flex flex-col items-center justify-center text-center relative overflow-hidden" style={{ boxShadow: "0 1px 4px 0 rgba(0,0,0,0.04)" }}>
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-emerald-500"></div>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Total Success</div>
+              <div className="text-2xl font-semibold text-emerald-600">{results.total_success}</div>
             </div>
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm text-center">
-              <div className="text-sm font-semibold text-red-700">Total Failed</div>
-              <div className="text-3xl font-bold text-red-800 mt-2">{results.total_failed}</div>
+            <div className="bg-white border border-border rounded p-4 flex flex-col items-center justify-center text-center relative overflow-hidden" style={{ boxShadow: "0 1px 4px 0 rgba(0,0,0,0.04)" }}>
+              <div className="absolute top-0 left-0 w-full h-0.5 bg-red-500"></div>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Total Failed</div>
+              <div className="text-2xl font-semibold text-red-600">{results.total_failed}</div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <h2 className="font-semibold text-slate-800">Batch Details</h2>
+          <div className="bg-white border border-border rounded overflow-hidden" style={{ boxShadow: "0 1px 4px 0 rgba(0,0,0,0.04)" }}>
+            <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">Batch Details</span>
+              <span className="text-[10px] text-muted-foreground">
+                Total {results.details?.length || 0} record processed
+              </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
-                  <tr>
-                    <th className="px-6 py-3 font-medium">Employee ID</th>
-                    <th className="px-6 py-3 font-medium">Status</th>
-                    <th className="px-6 py-3 font-medium">Message</th>
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-border bg-slate-50/50">
+                    <th className="text-left px-5 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Employee ID</th>
+                    <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                    <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Message</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {results.details?.length > 0 ? (
                     results.details.map((detail, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 transition">
-                        <td className="px-6 py-4 font-medium text-slate-700">{detail.employee_id}</td>
-                        <td className="px-6 py-4">
+                      <tr key={idx} className="border-b border-border last:border-0 hover:bg-slate-50/70 transition-colors">
+                        <td className="px-5 py-3 text-[11px] font-medium text-foreground">
+                          EMP-{detail.employee_id}
+                        </td>
+                        <td className="px-4 py-3">
                           {detail.status === "success" ? (
-                            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                              Success
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 uppercase tracking-wider">
+                              <CheckCircle2 size={10} /> Success
                             </span>
                           ) : (
-                            <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                              Failed
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 uppercase tracking-wider">
+                              <XCircle size={10} /> Failed
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-slate-600">
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
                           {detail.status === "success" ? (
                             <button
                               onClick={() => navigate(`/payrolls/${detail.payroll_id}`)}
-                              className="text-sky-600 hover:underline"
+                              className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium transition-colors"
                             >
-                              View Payroll (ID: {detail.payroll_id})
+                              View Payroll <ChevronRight size={12} />
                             </button>
                           ) : (
-                            detail.error || detail.message || "-"
+                            <span className="text-red-500">{detail.error || detail.message || "-"}</span>
                           )}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={3} className="px-6 py-8 text-center text-slate-500">
-                        Tidak ada rincian yang ditampilkan.
+                      <td colSpan={3} className="px-5 py-8 text-center text-xs text-muted-foreground">
+                        Tidak ada rincian batch.
                       </td>
                     </tr>
                   )}

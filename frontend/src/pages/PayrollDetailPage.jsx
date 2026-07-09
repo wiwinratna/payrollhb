@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { fetchPayrollDetail } from "@/lib/payrollsApi";
 import { getToken, getUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import RoleRoute from "../components/RoleRoute";
+import SecurityInspectionTab from "../components/SecurityInspectionTab";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 
@@ -46,6 +48,35 @@ function monthLabel(yyyyMM) {
   return `${map[m] || m} ${y}`;
 }
 
+function formatDetail(detail, mandays, rate_amount) {
+  if (!detail || typeof detail !== "object") return "";
+  const parts = [];
+  if (detail.num_trips != null) parts.push(`${detail.num_trips} Trip`);
+  if (detail.project_assignments_mandays != null) parts.push(`${detail.project_assignments_mandays} Hr Project`);
+  if (detail.is_on_probation) parts.push("Probation 50%");
+  if (detail.num_toddlers != null) parts.push(`${detail.num_toddlers} Anak`);
+  if (detail.mandays_outside_city != null) parts.push(`${detail.mandays_outside_city} Hr Dinas`);
+  if (detail.mandays_ho_wfo != null || detail.mandays_ho_wfh != null) {
+      const h = [];
+      if (detail.mandays_ho_wfo) h.push(`${detail.mandays_ho_wfo} WFO`);
+      if (detail.mandays_ho_wfh) h.push(`${detail.mandays_ho_wfh} WFH`);
+      if (h.length > 0) parts.push(h.join(", "));
+  }
+  if (detail.mandays_project != null && detail.project_assignments_mandays == null) {
+      parts.push(`${detail.mandays_project} Hr Project`);
+  }
+  
+  let desc = parts.join(" | ");
+  if (rate_amount > 0 && (detail.num_trips != null || mandays > 0)) {
+      const multiplier = mandays > 0 ? mandays : (detail.num_trips || 1);
+      desc += (desc ? " • " : "") + new Intl.NumberFormat("id-ID").format(rate_amount) + " x " + multiplier;
+      if (detail.multiplier != null) {
+          desc += " x " + detail.multiplier;
+      }
+  }
+  return desc ? `(${desc})` : "";
+}
+
 // akses nominal
 function AccessBadge({ masked }) {
   if (masked) {
@@ -64,9 +95,9 @@ function AccessBadge({ masked }) {
 
 function InfoItem({ label, value }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
+    <div className="bg-white border border-border rounded shadow-sm px-4 py-3">
       <div className="text-[11px] text-slate-500">{label}</div>
-      <div className="mt-0.5 text-sm font-semibold text-slate-900">
+      <div className="mt-0.5 text-sm font-medium text-foreground">
         {value ?? "-"}
       </div>
     </div>
@@ -82,6 +113,7 @@ export default function PayrollDetailPage() {
   const [row, setRow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [activeTab, setActiveTab] = useState("detail");
 
   const [pdfLoading, setPdfLoading] = useState(false);
   const [proofLoading, setProofLoading] = useState(false);
@@ -258,25 +290,19 @@ export default function PayrollDetailPage() {
   };
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
-        <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(14,165,233,0.10),transparent_45%),radial-gradient(circle_at_80%_18%,rgba(99,102,241,0.10),transparent_48%)]" />
-      </div>
-
+    <div>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">
+              <span className="text-[10px] font-semibold text-muted-foreground">
                 Human Plus Institute
               </span>
             </div>
 
             <div className="mt-4 flex items-center gap-3 flex-wrap">
-              <h1 className="text-3xl font-black tracking-tight text-slate-900">
+              <h1 className="text-lg font-semibold text-foreground">
                 Slip Gaji
               </h1>
 
@@ -307,7 +333,7 @@ export default function PayrollDetailPage() {
             <Button
               variant="outline"
               onClick={() => nav(-1)}
-              className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+              className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               Kembali
             </Button>
@@ -317,7 +343,7 @@ export default function PayrollDetailPage() {
                 variant="outline"
                 onClick={() => handleRecalculate(false)}
                 disabled={isSaving}
-                className="rounded-2xl bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                className="rounded bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
               >
                 {isSaving ? "Processing..." : "Recalculate"}
               </Button>
@@ -327,7 +353,7 @@ export default function PayrollDetailPage() {
               variant="outline"
               onClick={() => row?.id && openPayrollPdf(row.id)}
               disabled={!row || row.masked || pdfLoading}
-              className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+              className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
               title={row?.masked ? "Tidak punya akses melihat nominal" : "Buka PDF di tab baru"}
             >
               {pdfLoading ? "Membuka PDF..." : "Buka PDF (Print)"}
@@ -338,7 +364,7 @@ export default function PayrollDetailPage() {
                 variant="outline"
                 onClick={() => openProof(row.id)}
                 disabled={proofLoading}
-                className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+                className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
                 title="Buka bukti transfer di tab baru"
               >
                 {proofLoading ? "Membuka..." : "Bukti Transfer"}
@@ -348,13 +374,13 @@ export default function PayrollDetailPage() {
         </div>
 
         {loading && (
-          <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] px-6 py-6 text-sm text-slate-500">
+          <div className="bg-white border border-border rounded shadow-sm px-6 py-6 text-xs text-muted-foreground">
             Loading slip gaji...
           </div>
         )}
 
         {!loading && err && (
-          <div className="rounded-3xl border border-rose-200 bg-rose-50 px-6 py-5 text-sm text-rose-700">
+          <div className="bg-white border border-border rounded shadow-sm p-4 my-4">
             <div className="font-bold text-rose-800 mb-1">Gagal memuat data</div>
             {err}
           </div>
@@ -362,10 +388,34 @@ export default function PayrollDetailPage() {
 
         {!loading && !err && row && (
           <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
+            
+            <div className="flex border-b border-slate-200">
+              <button
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'detail' ? 'border-sky-500 text-sky-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                onClick={() => setActiveTab('detail')}
+              >
+                Detail Gaji
+              </button>
+              {(user?.role?.toLowerCase() === 'director' || user?.role?.toLowerCase() === 'fat') && (
+                <button
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'security' ? 'border-sky-500 text-sky-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  onClick={() => setActiveTab('security')}
+                >
+                  Security Inspection
+                </button>
+              )}
+            </div>
+
+            {activeTab === 'security' && (
+              <SecurityInspectionTab payrollId={row.id} />
+            )}
+
+            {activeTab === 'detail' && (
+              <>
+                <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className="text-sm font-medium text-foreground">
                     Informasi Karyawan
                   </div>
                   <div className="text-xs text-slate-500">
@@ -378,48 +428,57 @@ export default function PayrollDetailPage() {
                 </div>
               </div>
 
-              <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div className="md:col-span-6">
-                  <InfoItem label="Nama" value={row.employee_name || "-"} />
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Nama Lengkap</span>
+                    <span className="text-sm font-medium text-foreground">{row.employee_name || "-"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Kode Pegawai</span>
+                    <span className="text-sm font-medium text-slate-700">{row.employee_code || "-"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Departemen</span>
+                    <span className="text-sm font-medium text-slate-700">{row.employee?.department || "-"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Posisi</span>
+                    <span className="text-sm font-medium text-slate-700">{row.employee?.position || "-"}</span>
+                  </div>
                 </div>
-                <div className="md:col-span-3">
-                  <InfoItem label="Kode" value={row.employee_code || "-"} />
-                </div>
-                <div className="md:col-span-3">
-                  <InfoItem
-                    label="Status"
-                    value={
-                      <span
-                        className={[
-                          "inline-flex items-center gap-2",
-                          row.employee_status === "inactive"
-                            ? "text-rose-700"
-                            : "text-emerald-700",
-                        ].join(" ")}
-                      >
-                        <span
-                          className={[
-                            "h-2 w-2 rounded-full",
-                            row.employee_status === "inactive"
-                              ? "bg-rose-500"
-                              : "bg-emerald-500",
-                          ].join(" ")}
-                        />
-                        {row.employee_status || "-"}
-                      </span>
-                    }
-                  />
-                </div>
-                <div className="md:col-span-6">
-                  <InfoItem label="Dibuat oleh" value={row.created_by || "-"} />
+
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Grade</span>
+                    <span className="text-sm font-medium text-slate-700">{row.employee?.grade_name || "-"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Status Kerja</span>
+                    <span className="text-sm font-medium text-slate-700">
+                      {row.employee?.employment_type_name || "-"} / {row.employee?.work_basis_name || "-"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Bank</span>
+                    <span className="text-sm font-medium text-foreground">{row.employee?.bank_name || "-"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">No. Rekening</span>
+                    <span className="text-sm font-medium text-slate-700">
+                      {row.employee?.bank_account_number_decrypted || "-"}
+                      <br/>
+                      <span className="text-xs text-[10px] text-muted-foreground mt-0.5 block">a.n {row.employee?.bank_account_name || "-"}</span>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
+            <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className="text-sm font-medium text-foreground">
                     Rincian Gaji
                   </div>
                   <div className="text-xs text-slate-500">
@@ -438,17 +497,39 @@ export default function PayrollDetailPage() {
                 )}
               </div>
 
-              <div className="p-6">
+              <div className="p-4">
                 {row.masked ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+                  <div className="rounded border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
                     Kamu tidak memiliki akses untuk melihat nominal gaji.
                   </div>
                 ) : (
-                  <div className="overflow-hidden rounded-2xl border border-slate-200">
+                  <div className="overflow-hidden rounded border border-slate-200">
                     <div className="grid grid-cols-1 divide-y divide-slate-200">
                       <div className="flex items-center justify-between px-5 py-4 bg-white">
-                         <span className="text-sm text-slate-600">Gaji Pokok</span>
-                         <span className="text-sm font-semibold text-slate-900">
+                         <div className="flex flex-col gap-1">
+                           <span className="text-sm font-medium text-slate-700">Gaji Pokok</span>
+                           
+                           {row.active_salary_profile && (
+                             <div className="text-xs text-slate-500 mt-1 mb-1">
+                               <div className="grid grid-cols-2 gap-x-4 gap-y-1 bg-slate-50 p-2 rounded border border-slate-100">
+                                 <div>Gaji Bulanan: <span className="font-medium text-slate-700">{formatIDR(row.active_salary_profile.base_salary)}</span></div>
+                                 <div>Rate Harian: <span className="font-medium text-slate-700">{formatIDR(row.active_salary_profile.mandays_rate)}</span></div>
+                               </div>
+                             </div>
+                           )}
+                           
+                           {row.mandays_summary && (
+                             <div className="text-[11px] text-slate-500 space-y-0.5">
+                               <div>WFO: <span className="font-medium text-slate-700">{row.mandays_summary.mandays_ho_wfo} hari</span></div>
+                               {row.mandays_summary.mandays_outside_city > 0 && <div>Luar Kota: <span className="font-medium text-slate-700">{row.mandays_summary.mandays_outside_city} hari</span></div>}
+                               {row.mandays_summary.mandays_project > 0 && <div>Proyek: <span className="font-medium text-slate-700">{row.mandays_summary.mandays_project} hari</span></div>}
+                               {row.mandays_summary.mandays_training > 0 && <div>Training: <span className="font-medium text-slate-700">{row.mandays_summary.mandays_training} hari</span></div>}
+                               <div>WFH: <span className="font-medium text-slate-700">{row.mandays_summary.mandays_ho_wfh} hari</span> <span className="text-amber-600 text-[10px]">(Tidak dikali mandays rate)</span></div>
+                               <div className="pt-1 mt-1 border-t border-slate-100">Total Pengali Mandays: <span className="font-bold text-sky-700">{row.mandays_summary.total_mandays} hari</span></div>
+                             </div>
+                           )}
+                         </div>
+                         <span className="text-sm font-medium text-foreground self-start mt-0.5">
                            {formatIDR(row.gaji_pokok)}
                          </span>
                       </div>
@@ -459,7 +540,7 @@ export default function PayrollDetailPage() {
                             <div key={`al-${idx}`} className="flex items-center justify-between px-5 py-4 bg-white/80 group hover:bg-slate-50 transition">
                               <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm text-emerald-600">+ {al.allowance_type?.name || al.allowance_type || 'Tunjangan'}</span>
+                                  <span className="text-sm text-slate-700 font-medium">{al.allowance_type?.name || al.allowance_type || 'Tunjangan'}</span>
                                   {al.is_manual_override && (
                                     <Badge variant="outline" className="text-[10px] bg-yellow-100 text-yellow-800 border-yellow-200 px-1.5 py-0.5">
                                       Manual Override
@@ -475,20 +556,24 @@ export default function PayrollDetailPage() {
                                     </button>
                                   )}
                                 </div>
-                                {al.override_reason && (
-                                  <span className="text-xs text-slate-500 italic">Alasan: {al.override_reason}</span>
-                                )}
+                                <span className="text-xs text-slate-500 pl-1">
+                                  {al.is_manual_override ? (
+                                    `Alasan: ${al.condition_notes || al.override_reason || '-'}`
+                                  ) : (
+                                    formatDetail(al.calculation_detail, al.mandays, al.rate_amount)
+                                  )}
+                                </span>
                               </div>
-                              <span className="text-sm font-semibold text-slate-900">
+                              <span className="text-xs font-semibold text-emerald-600">
                                 {formatIDR(al.amount)}
                               </span>
                             </div>
                           ))}
                           {row.deductions?.map((dd, idx) => (
-                            <div key={`dd-${idx}`} className="flex items-center justify-between px-5 py-4 bg-white">
-                              <span className="text-sm text-rose-600">- {dd.deduction_label || 'Potongan'}</span>
-                              <span className="text-sm font-semibold text-slate-900">
-                                {formatIDR(dd.amount)}
+                            <div key={`dd-${idx}`} className="flex items-center justify-between px-5 py-4 bg-white border-t border-slate-100">
+                              <span className="text-sm text-slate-700 font-medium">{dd.deduction_label || 'Potongan'}</span>
+                              <span className="text-xs font-semibold text-rose-600">
+                                - {formatIDR(dd.amount)}
                               </span>
                             </div>
                           ))}
@@ -497,14 +582,14 @@ export default function PayrollDetailPage() {
                         <>
                           <div className="flex items-center justify-between px-5 py-4 bg-white/80">
                             <span className="text-sm text-slate-600">Tunjangan</span>
-                            <span className="text-sm font-semibold text-slate-900">
+                            <span className="text-sm font-medium text-foreground">
                               {formatIDR(row.tunjangan)}
                             </span>
                           </div>
 
                           <div className="flex items-center justify-between px-5 py-4 bg-white">
                             <span className="text-sm text-slate-600">Potongan</span>
-                            <span className="text-sm font-semibold text-slate-900">
+                            <span className="text-sm font-medium text-foreground">
                               {formatIDR(row.potongan)}
                             </span>
                           </div>
@@ -524,7 +609,7 @@ export default function PayrollDetailPage() {
                 )}
 
                 {!!row.catatan && (
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white/70 px-5 py-4">
+                  <div className="mt-4 bg-white border border-border rounded shadow-sm px-5 py-4">
                     <div className="text-[11px] text-slate-500">Catatan</div>
                     <div className="mt-1 text-sm text-slate-800">{row.catatan}</div>
                   </div>
@@ -536,9 +621,11 @@ export default function PayrollDetailPage() {
                 <span>Payroll Internal System</span>
               </div>
             </div>
-          </div>
+          </>
         )}
       </div>
+    )}
+  </div>
 
       <OverrideAllowanceModal
         isOpen={!!overrideData}

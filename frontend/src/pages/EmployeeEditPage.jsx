@@ -144,25 +144,24 @@ export default function EmployeeEditPage() {
     }
   };
 
-  return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/45 blur-3xl" />
-        <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/35 blur-3xl" />
-      </div>
+  const selectedGrade = grades.find((g) => String(g.id) === String(form.grade_id));
+  const hasChildcare = selectedGrade?.allowance_rates?.some((r) => r.allowance_type?.code === 'childcare') || false;
+  const hasTraining = selectedGrade?.allowance_rates?.some((r) => r.allowance_type?.code === 'training') || false;
 
+  return (
+    <div>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">
+              <span className="text-[10px] font-semibold text-muted-foreground">
                 Human Plus Institute
               </span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-4 text-lg font-semibold text-foreground">
               Edit Employee
             </h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -172,7 +171,7 @@ export default function EmployeeEditPage() {
 
           <Button
             variant="outline"
-            className="rounded-2xl bg-white/70 border-slate-200 hover:bg-white"
+            className="rounded bg-white/70 border-slate-200 hover:bg-white"
             onClick={() => nav(-1)}
           >
             Back
@@ -180,20 +179,20 @@ export default function EmployeeEditPage() {
         </div>
 
         {err && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {err}
           </div>
         )}
 
         {/* Form Card */}
-        <Card className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)]">
+        <Card className="bg-white border border-border rounded shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Employee Form</CardTitle>
           </CardHeader>
 
           <CardContent>
             {loading ? (
-              <p className="text-sm text-slate-500">Loading data...</p>
+              <p className="text-xs text-muted-foreground">Loading data...</p>
             ) : (
               <form onSubmit={submit} className="space-y-8">
                 {/* BASIC */}
@@ -258,6 +257,75 @@ export default function EmployeeEditPage() {
                       </select>
                     </div>
 
+                    {/* --- PREVIEW HAK & TUNJANGAN --- */}
+                    {selectedGrade && (() => {
+                      const formatNum = (num) => new Intl.NumberFormat("id-ID").format(num);
+                      
+                      const getInfoBadge = (type) => {
+                        switch (type) {
+                          case 'per_trip':
+                            return <span className="bg-sky-100 text-sky-700 px-2 py-0.5 rounded text-[10px] font-bold border border-sky-200">Dibayar per Perjalanan</span>;
+                          case 'per_mandays':
+                            return <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-200">Dibayar per Hari Hadir</span>;
+                          case 'formula':
+                            return <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold border border-emerald-200">Dikalikan Syarat (Mis. Jml Anak)</span>;
+                          case 'fixed':
+                            return <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-200">Tetap Setiap Bulan</span>;
+                          default:
+                            return <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-200 uppercase">{type}</span>;
+                        }
+                      };
+
+                      return (
+                        <div className="md:col-span-2 mt-2 mb-4 bg-slate-50/50 border border-slate-200 rounded-xl overflow-hidden">
+                          <div className="bg-slate-100/50 px-4 py-3 border-b border-slate-200">
+                            <h3 className="text-sm font-semibold text-slate-800">Preview Standar Gaji: {selectedGrade.name}</h3>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Besaran gaji ini adalah nilai default. Anda bisa melakukan override nanti.</p>
+                          </div>
+                          
+                          <div className="p-4">
+                            <div className="flex flex-col sm:flex-row gap-8 mb-6">
+                              <div>
+                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">Gaji Bulanan</div>
+                                <div className="text-sm font-semibold text-slate-900">Rp {formatNum(selectedGrade.default_base_salary || 0)}</div>
+                              </div>
+                              <div>
+                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">Gaji Harian (Mandays)</div>
+                                <div className="text-sm font-semibold text-slate-900">Rp {formatNum(selectedGrade.default_mandays_rate || 0)}</div>
+                              </div>
+                            </div>
+
+                            {selectedGrade.allowance_rates && selectedGrade.allowance_rates.length > 0 && (
+                              <div>
+                                <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">Daftar Tunjangan (Allowances)</div>
+                                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                  <table className="w-full text-left text-xs text-slate-700">
+                                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                                      <tr>
+                                        <th className="px-3 py-2.5 font-medium">Nama Tunjangan</th>
+                                        <th className="px-3 py-2.5 font-medium">Aturan Pencairan (Cara Hitung)</th>
+                                        <th className="px-3 py-2.5 font-medium text-right">Tarif Dasar</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                      {selectedGrade.allowance_rates.map((rate, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                          <td className="px-3 py-2.5 font-medium text-slate-800">{rate.allowance_type?.name}</td>
+                                          <td className="px-3 py-2.5">{getInfoBadge(rate.allowance_type?.calculation_type)}</td>
+                                          <td className="px-3 py-2.5 text-right font-semibold text-slate-900">Rp {formatNum(rate.rate_amount)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {/* --- END PREVIEW --- */}
+
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-slate-600">Tipe Hubungan Kerja (Employment Type)</label>
                       <select
@@ -274,40 +342,30 @@ export default function EmployeeEditPage() {
                       </select>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-600">Basis Kerja (Work Basis)</label>
-                      <select
-                        value={form.work_basis_id}
-                        onChange={(e) => setForm((p) => ({ ...p, work_basis_id: e.target.value }))}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
-                      >
-                        <option value="">-- Pilih Basis --</option>
-                        {workBases.map((wb) => (
-                          <option key={wb.id} value={wb.id}>
-                            {wb.name}
-                          </option>
-                        ))}
-                      </select>
+                    <div className={`space-y-1 ${(!form.grade_id || !hasChildcare) ? 'opacity-50' : ''}`}>
+                      <label className="text-xs font-medium text-slate-600">Jumlah Balita (Childcare)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={!form.grade_id || !hasChildcare}
+                        placeholder={!form.grade_id ? "Pilih grade terlebih dahulu" : (!hasChildcare ? "Tidak berlaku untuk grade ini" : "")}
+                        value={form.num_toddlers}
+                        onChange={(e) => setForm((p) => ({ ...p, num_toddlers: parseInt(e.target.value) || 0 }))}
+                        className={`w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40 ${(!form.grade_id || !hasChildcare) ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`}
+                      />
                     </div>
 
-                    <Input
-                      label="Jumlah Balita (Childcare)"
-                      type="number"
-                      min="0"
-                      value={form.num_toddlers}
-                      onChange={(v) => setForm((p) => ({ ...p, num_toddlers: parseInt(v) || 0 }))}
-                    />
-
-                    <div className="flex items-center gap-2 py-2">
+                    <div className={`flex items-center gap-2 py-2 mt-2 ${(!form.grade_id || !hasTraining) ? 'opacity-50' : ''}`}>
                       <input
                         type="checkbox"
                         id="is_trainer"
+                        disabled={!form.grade_id || !hasTraining}
                         checked={form.is_trainer}
                         onChange={(e) => setForm((p) => ({ ...p, is_trainer: e.target.checked }))}
-                        className="h-4 w-4 rounded border-slate-200 text-sky-600 focus:ring-sky-500/40"
+                        className={`h-4 w-4 rounded border-slate-200 text-sky-600 focus:ring-sky-500/40 ${(!form.grade_id || !hasTraining) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                       />
-                      <label htmlFor="is_trainer" className="text-sm font-semibold text-slate-800 cursor-pointer select-none">
-                        Karyawan adalah Trainer
+                      <label htmlFor="is_trainer" className={`text-xs font-semibold cursor-pointer select-none ${(!form.grade_id || !hasTraining) ? 'text-slate-500 cursor-not-allowed' : 'text-slate-800'}`}>
+                        Karyawan adalah Trainer {(!form.grade_id) ? "(Pilih grade terlebih dahulu)" : (!hasTraining && "(Tidak berlaku)")}
                       </label>
                     </div>
 
@@ -319,7 +377,7 @@ export default function EmployeeEditPage() {
                         onChange={(e) => setForm((p) => ({ ...p, is_on_probation: e.target.checked }))}
                         className="h-4 w-4 rounded border-slate-200 text-sky-600 focus:ring-sky-500/40"
                       />
-                      <label htmlFor="is_on_probation" className="text-sm font-semibold text-slate-800 cursor-pointer select-none">
+                      <label htmlFor="is_on_probation" className="text-xs font-semibold text-slate-800 cursor-pointer select-none">
                         Dalam Masa Percobaan Promosi
                       </label>
                     </div>
@@ -388,7 +446,7 @@ export default function EmployeeEditPage() {
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-bold hover:brightness-110"
+                    className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                   >
                     {saving ? "Saving..." : "Save Changes"}
                   </Button>
@@ -396,7 +454,7 @@ export default function EmployeeEditPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-2xl"
+                    className="rounded"
                     onClick={() => nav(-1)}
                   >
                     Cancel

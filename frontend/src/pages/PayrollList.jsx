@@ -2,16 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 import { getUser, isAuthed, getToken } from "@/lib/auth";
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Search, ChevronDown, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, FileText } from "lucide-react";
+import PayrollCreateModal from "@/components/PayrollCreateModal";
+
+function AvatarInitial({ letters }) {
+  return (
+    <div className="w-7 h-7 rounded flex items-center justify-center text-[10px] font-semibold bg-blue-50 text-blue-600 flex-shrink-0 border border-blue-100">
+      {letters}
+    </div>
+  );
+}
 
 export default function PayrollList() {
   const [rows, setRows] = useState([]);
@@ -21,22 +22,19 @@ export default function PayrollList() {
   const [q, setQ] = useState("");
   const [period, setPeriod] = useState("all");
 
-  // pagination
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 8;
 
   const navigate = useNavigate();
   const user = getUser();
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  // ===== ROLE =====
   const role = String(user?.role || "").toLowerCase();
   const isFAT = role === "fat";
   const isDirector = role === "director";
   const canAction = isFAT || isDirector;
 
-  // =========================
-  // ✅ MARK PAID MODAL STATE
-  // =========================
+  // Modal Mark Paid
   const [paidOpen, setPaidOpen] = useState(false);
   const [paidTarget, setPaidTarget] = useState(null);
   const [paidFile, setPaidFile] = useState(null);
@@ -61,7 +59,6 @@ export default function PayrollList() {
     setPaidNote("");
   };
 
-  // ===== Helpers =====
   const periodKey = (value) => {
     const s = String(value || "").trim();
     if (!s) return "";
@@ -74,18 +71,8 @@ export default function PayrollList() {
     if (!/^\d{4}-\d{2}$/.test(yyyyMM)) return yyyyMM || "-";
     const [y, m] = yyyyMM.split("-");
     const map = {
-      "01": "Jan",
-      "02": "Feb",
-      "03": "Mar",
-      "04": "Apr",
-      "05": "Mei",
-      "06": "Jun",
-      "07": "Jul",
-      "08": "Agu",
-      "09": "Sep",
-      "10": "Okt",
-      "11": "Nov",
-      "12": "Des",
+      "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "Mei", "06": "Jun",
+      "07": "Jul", "08": "Agu", "09": "Sep", "10": "Okt", "11": "Nov", "12": "Des",
     };
     return `${map[m] || m} ${y}`;
   };
@@ -93,18 +80,16 @@ export default function PayrollList() {
   const initials = (name) => {
     const s = String(name || "").trim();
     if (!s) return "N";
-    return s[0].toUpperCase();
+    return s.slice(0, 2).toUpperCase();
   };
 
   const statusLower = (s) => String(s || "").toLowerCase();
 
-  // ===== Load =====
   const load = async () => {
     setErr("");
     setLoading(true);
     try {
-      const qs = isDirector ? "?status=requested" : "";
-      const data = await api(`/payrolls${qs}`);
+      const data = await api(`/payrolls`);
       setRows(Array.isArray(data) ? data : data?.data ?? []);
     } catch (e) {
       setErr(e?.message || "Gagal memuat data payroll.");
@@ -119,7 +104,6 @@ export default function PayrollList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ===== Actions =====
   const onDelete = async (id) => {
     const ok = confirm("Yakin mau hapus payroll ini?");
     if (!ok) return;
@@ -167,10 +151,8 @@ export default function PayrollList() {
     }
   };
 
-  // ✅ MARK PAID (UPLOAD BUKTI) — pakai fetch + FormData
   const submitMarkPaid = async () => {
     if (!paidTarget?.id) return;
-
     if (!paidFile) {
       alert("Bukti transfer wajib di-upload dulu.");
       return;
@@ -185,8 +167,6 @@ export default function PayrollList() {
 
       const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
       const url = `${BASE_URL}/api/payrolls/${paidTarget.id}/mark-paid`;
-
-      // ✅ TOKEN YANG BENAR (dari auth.js kamu: payroll_token)
       const token = getToken();
 
       const res = await fetch(url, {
@@ -194,24 +174,16 @@ export default function PayrollList() {
         headers: {
           Accept: "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          // jangan set Content-Type (biar boundary FormData otomatis)
         },
         body: fd,
       });
 
       const text = await res.text();
       let data = null;
-      try {
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = text;
-      }
+      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
       if (!res.ok) {
-        const msg =
-          data && typeof data === "object" && data.message
-            ? data.message
-            : `HTTP ${res.status}`;
+        const msg = data && typeof data === "object" && data.message ? data.message : `HTTP ${res.status}`;
         throw new Error(msg);
       }
 
@@ -225,60 +197,6 @@ export default function PayrollList() {
     }
   };
 
-  // ===== Badges =====
-  const AccessBadge = ({ masked }) => {
-    if (masked) {
-      return (
-        <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700">
-          MASKED
-        </Badge>
-      );
-    }
-    return (
-      <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
-        NOMINAL OK
-      </Badge>
-    );
-  };
-
-  const StatusBadge = ({ status }) => {
-    const s = statusLower(status);
-    if (s === "paid") {
-      return (
-        <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
-          PAID
-        </Badge>
-      );
-    }
-    if (s === "approved") {
-      return (
-        <Badge className="rounded-full border border-sky-200 bg-sky-50 text-sky-700">
-          APPROVED
-        </Badge>
-      );
-    }
-    if (s === "requested") {
-      return (
-        <Badge className="rounded-full border border-amber-200 bg-amber-50 text-amber-800">
-          REQUESTED
-        </Badge>
-      );
-    }
-    if (s === "rejected") {
-      return (
-        <Badge className="rounded-full border border-rose-200 bg-rose-50 text-rose-700">
-          REJECTED
-        </Badge>
-      );
-    }
-    return (
-      <Badge className="rounded-full border border-slate-200 bg-white text-slate-700">
-        DRAFT
-      </Badge>
-    );
-  };
-
-  // ===== Options periode =====
   const periodOptions = useMemo(() => {
     const set = new Set();
     rows.forEach((r) => {
@@ -289,7 +207,6 @@ export default function PayrollList() {
     return ["all", ...sorted];
   }, [rows]);
 
-  // ===== Filter =====
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
     return rows.filter((r) => {
@@ -311,10 +228,7 @@ export default function PayrollList() {
   const summary = useMemo(() => {
     const total = filtered.length;
     const masked = filtered.filter((x) => !!x.masked).length;
-    const pending = filtered.filter(
-      (x) => statusLower(x.status) === "requested"
-    ).length;
-    return { total, masked, pending };
+    return { total, masked };
   }, [filtered]);
 
   const resetFilters = () => {
@@ -322,135 +236,92 @@ export default function PayrollList() {
     setPeriod("all");
   };
 
-  // ===== Pagination =====
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const start = (safePage - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
   const paged = filtered.slice(start, end);
 
-  const pageItems = useMemo(() => {
-    const items = [];
-    const add = (v) => items.push(v);
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) add(i);
-      return items;
-    }
-
-    add(1);
-    if (safePage > 3) add("…");
-
-    const from = Math.max(2, safePage - 1);
-    const to = Math.min(totalPages - 1, safePage + 1);
-    for (let i = from; i <= to; i++) add(i);
-
-    if (safePage < totalPages - 2) add("…");
-    add(totalPages);
-
-    return items;
-  }, [safePage, totalPages]);
+  const getStatusColor = (status) => {
+    const s = statusLower(status);
+    if (s === "paid") return "text-emerald-600";
+    if (s === "approved") return "text-sky-600";
+    if (s === "rejected") return "text-red-600";
+    if (s === "requested") return "text-amber-600";
+    return "text-slate-500";
+  };
 
   return (
-    <div className="relative">
-      {/* soft background */}
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/45 blur-3xl" />
-        <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/35 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(14,165,233,0.10),transparent_45%),radial-gradient(circle_at_80%_18%,rgba(99,102,241,0.10),transparent_48%)]" />
-      </div>
-
-      <div className="space-y-6">
-        {/* Header card */}
-        <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur shadow-[0_16px_50px_rgba(2,6,23,0.06)] p-7">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
-                <span className="h-2 w-2 rounded-full bg-sky-500" />
-                <span className="text-sm font-semibold text-slate-700">
-                  Human Plus Institute
-                </span>
-              </div>
-
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
-                Payroll
-              </h1>
-              <p className="mt-1 text-sm text-slate-600">
-                Kelola dan lihat slip gaji per periode. Gunakan pencarian & filter agar lebih cepat.
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-semibold text-slate-700">
-                  <span className="h-2 w-2 rounded-full bg-slate-400" />
-                  Total: {loading ? "…" : summary.total}
-                </span>
-
-                <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
-                  <span className="h-2 w-2 rounded-full bg-slate-500" />
-                  Masked: {loading ? "…" : summary.masked}
-                </span>
-
-                {isDirector && (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
-                    <span className="h-2 w-2 rounded-full bg-amber-500" />
-                    Pending Approval: {loading ? "…" : summary.pending}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={load}
-                disabled={loading}
-                className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
-              >
-                {loading ? "Refreshing..." : "Refresh"}
-              </Button>
-
-              {isFAT && (
-                <Button
-                  onClick={() => navigate("/payrolls/new")}
-                  className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
-                >
-                  + Create Payroll
-                </Button>
-              )}
-            </div>
+    <div>
+      {/* Title + actions */}
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">Payroll</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Kelola dan lihat slip gaji per periode. Gunakan pencarian & filter agar lebih cepat.
+          </p>
+          <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+            <span>Total: <strong className="text-foreground">{summary.total}</strong></span>
+            <span className="text-border">·</span>
+            <span>Masked: <strong className="text-foreground">{summary.masked}</strong></span>
           </div>
-
-          {err && (
-            <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {err}
-            </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={load}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          {isFAT && (
+            <button 
+              onClick={() => setCreateModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+            >
+              <Plus size={11} />
+              Create Payroll
+            </button>
           )}
         </div>
+      </div>
+      
+      <PayrollCreateModal 
+        open={createModalOpen} 
+        onClose={() => setCreateModalOpen(false)} 
+        onSuccess={load}
+      />
 
-        {/* Filter card */}
-        <div className="rounded-3xl border border-slate-200 bg-white/70 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)]">
-          <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            <div className="md:col-span-6">
-              <div className="text-sm font-semibold text-slate-800">Cari Karyawan</div>
-              <div className="mt-2 relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  🔎
-                </span>
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Nama / kode karyawan..."
-                  className="w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
-                />
-              </div>
+      {err && (
+        <div className="mb-4 rounded bg-rose-50 px-4 py-3 text-xs text-rose-600 border border-rose-100">
+          {err}
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white border border-border rounded p-4 mb-4" style={{ boxShadow: "0 1px 4px 0 rgba(0,0,0,0.04)" }}>
+        <div className="flex flex-col md:flex-row md:items-end gap-3">
+          <div className="flex-1">
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5">Cari Karyawan</label>
+            <div>
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Nama / kode karyawan..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-border rounded bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all placeholder:text-muted-foreground"
+              />
             </div>
-
-            <div className="md:col-span-4">
-              <div className="text-sm font-semibold text-slate-800">Filter Periode</div>
+          </div>
+          <div className="w-full md:w-52">
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5">Filter Periode</label>
+            <div>
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-200/40"
+                className="w-full appearance-none pl-3 pr-7 py-1.5 text-xs border border-border rounded bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
               >
                 {periodOptions.map((p) => (
                   <option key={p} value={p}>
@@ -458,371 +329,251 @@ export default function PayrollList() {
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div className="md:col-span-2 flex md:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full md:w-auto rounded-2xl border-slate-200 bg-white hover:bg-slate-50"
-                onClick={resetFilters}
-              >
-                Reset
-              </Button>
+              <ChevronDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             </div>
           </div>
+          <button
+            onClick={resetFilters}
+            className="px-3 py-1.5 text-xs text-muted-foreground border border-border rounded bg-white hover:bg-muted transition-colors whitespace-nowrap"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white border border-border rounded overflow-hidden" style={{ boxShadow: "0 1px 4px 0 rgba(0,0,0,0.04)" }}>
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <span className="text-sm font-medium text-foreground">Payroll Records</span>
+          <span className="text-[10px] text-muted-foreground">
+            Menampilkan {paged.length} dari {summary.total} record
+          </span>
         </div>
 
-        {/* Table card */}
-        <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-          <div className="px-8 py-5 border-b border-slate-200/70 flex items-center justify-between">
-            <div>
-              <div className="text-sm font-semibold text-slate-900">Payroll Records</div>
-              <div className="text-xs text-slate-500">
-                Klik baris untuk membuka detail payroll.
-              </div>
-            </div>
-
-            <div className="text-xs text-slate-500">
-              {loading
-                ? "Memuat..."
-                : `Menampilkan ${
-                    filtered.length === 0 ? 0 : start + 1
-                  }-${Math.min(end, filtered.length)} dari ${filtered.length}`}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <div className="px-10">
-              <Table>
-                <TableHeader className="sticky top-0 z-10">
-                  <TableRow className="bg-slate-50/80">
-                    <TableHead className="px-8 first:pl-10 text-slate-700">
-                      Karyawan
-                    </TableHead>
-                    <TableHead className="px-8 text-slate-700">Periode</TableHead>
-                    <TableHead className="px-8 text-slate-700">Status</TableHead>
-                    <TableHead className="px-8 text-slate-700">
-                      Akses Nominal
-                    </TableHead>
-
-                    {canAction && (
-                      <TableHead className="px-8 text-right text-slate-700 w-[340px]">
-                        Aksi
-                      </TableHead>
-                    )}
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {paged.map((r, idx) => (
-                    <TableRow
-                      key={r.id}
-                      className={[
-                        "cursor-pointer transition",
-                        idx % 2 === 0 ? "bg-white/40" : "bg-white/20",
-                        "hover:bg-slate-50/80",
-                      ].join(" ")}
-                      onClick={() => navigate(`/payrolls/${r.id}`)}
-                    >
-                      <TableCell className="px-8 first:pl-10 py-5">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 h-10 w-10 rounded-2xl border border-slate-200 bg-white grid place-items-center text-sm font-extrabold text-slate-700 shadow-sm">
-                            {initials(r.employee_name)}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-900">
-                              {r.employee_name ?? "-"}
-                            </div>
-                            {r.employee_code && (
-                              <div className="text-xs text-slate-500">
-                                {r.employee_code}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="px-8 text-slate-700">
-                        <span className="inline-flex rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-700">
-                          {monthLabel(periodKey(r.periode))}
-                        </span>
-                      </TableCell>
-
-                      <TableCell className="px-8">
-                        <StatusBadge status={r.status} />
-                      </TableCell>
-
-                      <TableCell className="px-8">
-                        <AccessBadge masked={r.masked} />
-                      </TableCell>
-
-                      {canAction && (
-                        <TableCell
-                          className="px-8 text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="inline-flex gap-2">
-                            {isDirector && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="rounded-xl border-slate-200 bg-white hover:bg-slate-50"
-                                  onClick={() => navigate(`/payrolls/${r.id}`)}
-                                >
-                                  Detail
-                                </Button>
-
-                                {statusLower(r.status) === "requested" && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
-                                      onClick={() => onApprove(r.id)}
-                                    >
-                                      Approve
-                                    </Button>
-
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      className="rounded-xl"
-                                      onClick={() => onReject(r.id)}
-                                    >
-                                      Reject
-                                    </Button>
-                                  </>
-                                )}
-                              </>
-                            )}
-
-                            {isFAT && (
-                              <>
-                                {statusLower(r.status) === "draft" && (
-                                  <Button
-                                    size="sm"
-                                    className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
-                                    onClick={() => onRequestPayment(r.id)}
-                                  >
-                                    Request Approval
-                                  </Button>
-                                )}
-
-                                {statusLower(r.status) === "approved" && (
-                                  <Button
-                                    size="sm"
-                                    className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    onClick={() => openPaidModal(r)}
-                                  >
-                                    Mark Paid
-                                  </Button>
-                                )}
-
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="rounded-xl border-slate-200 bg-white hover:bg-slate-50"
-                                  onClick={() => navigate(`/payrolls/${r.id}/edit`)}
-                                >
-                                  Edit
-                                </Button>
-
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  className="rounded-xl"
-                                  onClick={() => onDelete(r.id)}
-                                >
-                                  Delete
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-
-                  {filtered.length === 0 && !loading && !err && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={canAction ? 5 : 4}
-                        className="py-12 text-center text-slate-500"
-                      >
-                        Tidak ada data yang sesuai dengan pencarian / filter.
-                      </TableCell>
-                    </TableRow>
-                  )}
-
-                  {loading && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={canAction ? 5 : 4}
-                        className="py-12 text-center text-slate-500"
-                      >
-                        Loading...
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-
-          {/* Pagination */}
-          <div className="px-8 py-5 border-t border-slate-200/70 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-slate-500">
-              © {new Date().getFullYear()} Human Plus Institute — Payroll Internal System
-            </div>
-
-            <div className="flex items-center gap-2 justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={safePage <= 1}
-              >
-                Prev
-              </Button>
-
-              {pageItems.map((it, i) =>
-                it === "…" ? (
-                  <span key={`dots-${i}`} className="px-2 text-slate-400 text-sm">
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={it}
-                    onClick={() => setPage(it)}
-                    className={[
-                      "h-9 min-w-9 px-3 rounded-xl text-sm font-semibold border transition",
-                      it === safePage
-                        ? "border-sky-200 bg-sky-50 text-sky-700"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                    ].join(" ")}
-                  >
-                    {it}
-                  </button>
-                )
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-slate-50/50">
+                <th className="text-left px-5 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">ID</th>
+                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Karyawan</th>
+                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Periode</th>
+                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Akses Nominal</th>
+                {canAction && <th className="text-right px-5 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Aksi</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={canAction ? 6 : 5} className="py-8 text-center text-xs text-muted-foreground">
+                    Memuat data...
+                  </td>
+                </tr>
               )}
+              {!loading && paged.length === 0 && (
+                <tr>
+                  <td colSpan={canAction ? 6 : 5} className="py-8 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <FileText size={14} className="text-slate-300" />
+                      <p className="text-xs text-muted-foreground">Tidak ada data payroll.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {!loading && paged.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-b border-border last:border-0 hover:bg-slate-50/70 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/payrolls/${row.id}`)}
+                >
+                  <td className="px-5 py-3 text-[11px] font-medium text-blue-600">
+                    #{row.id}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <AvatarInitial letters={initials(row.employee_name)} />
+                      <div>
+                        <div className="text-xs font-medium text-foreground">{row.employee_name || "-"}</div>
+                        <div className="text-[10px] text-muted-foreground">{row.employee_code || "-"}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {monthLabel(periodKey(row.periode))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${getStatusColor(row.status)}`}>
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-[10px]">
+                    {row.masked ? (
+                      <span className="text-slate-400">Masked</span>
+                    ) : (
+                      <span className="text-blue-600 font-medium">Nominal OK</span>
+                    )}
+                  </td>
+                  
+                  {canAction && (
+                    <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {isDirector && (
+                          <>
+                            {statusLower(row.status) === "requested" && (
+                              <>
+                                <button
+                                  onClick={() => onApprove(row.id)}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-emerald-600 border border-emerald-200 bg-emerald-50 rounded hover:bg-emerald-100 transition-colors"
+                                >
+                                  <CheckCircle2 size={10} /> Approve
+                                </button>
+                                <button
+                                  onClick={() => onReject(row.id)}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-red-600 border border-red-200 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                                >
+                                  <XCircle size={10} /> Reject
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={safePage >= totalPages}
-              >
-                Next
-              </Button>
-            </div>
+                        {isFAT && (
+                          <>
+                            {statusLower(row.status) === "draft" && (
+                              <button
+                                onClick={() => onRequestPayment(row.id)}
+                                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-indigo-600 border border-indigo-200 bg-indigo-50 rounded hover:bg-indigo-100 transition-colors"
+                              >
+                                Request Apprv
+                              </button>
+                            )}
+                            {statusLower(row.status) === "approved" && (
+                              <button
+                                onClick={() => openPaidModal(row)}
+                                className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 transition-colors"
+                              >
+                                <CheckCircle2 size={10} /> Mark Paid
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => onDelete(row.id)}
+                              className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-red-600 border border-red-200 rounded hover:bg-red-50 transition-colors"
+                            >
+                              <Trash2 size={9} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Pagination Details */}
+        <div className="px-5 py-3 border-t border-border flex items-center justify-between">
+          <div className="text-[10px] text-muted-foreground">
+            Halaman {safePage} dari {totalPages}
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              className="px-2 py-1 border border-border rounded text-[10px] disabled:opacity-50 hover:bg-slate-50 transition-colors"
+            >
+              Prev
+            </button>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              className="px-2 py-1 border border-border rounded text-[10px] disabled:opacity-50 hover:bg-slate-50 transition-colors"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
 
-      {/* ✅ MODAL MARK PAID */}
+      {/* MODAL MARK PAID */}
       {paidOpen && (
-        <div className="fixed inset-0 z-[999]">
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"
-            onClick={closePaidModal}
-          />
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-[0_20px_70px_rgba(2,6,23,0.25)] overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-200">
-                <div className="text-lg font-black text-slate-900">
-                  Mark Paid + Upload Bukti
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={closePaidModal} />
+          <div className="relative w-full max-w-md bg-white rounded-lg shadow-lg border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="text-xs font-semibold text-foreground">Mark Paid + Upload Bukti</h2>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Wajib upload bukti transfer agar tidak asal klik "Paid".</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-50 border border-border rounded p-3">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Payroll</div>
+                <div className="text-xs font-semibold text-foreground mt-1">
+                  {paidTarget?.employee_name || "-"} ({paidTarget?.employee_code || "-"})
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  Wajib upload bukti transfer agar tidak asal klik “Paid”.
-                </div>
-              </div>
-
-              <div className="px-6 py-5 space-y-4">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="text-xs text-slate-500">Payroll</div>
-                  <div className="text-sm font-bold text-slate-900 mt-1">
-                    {paidTarget?.employee_name || "-"} (
-                    {paidTarget?.employee_code || "-"})
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    Periode: {monthLabel(periodKey(paidTarget?.periode))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800">
-                    Bukti Transfer <span className="text-rose-600">*</span>
-                  </label>
-                  <div className="text-xs text-slate-500 mt-1">
-                    Format: PDF/JPG/PNG (maks 4MB).
-                  </div>
-
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm"
-                    onChange={(e) => setPaidFile(e.target.files?.[0] || null)}
-                    disabled={paidSubmitting}
-                  />
-
-                  {paidFile && (
-                    <div className="mt-2 text-xs text-slate-600">
-                      Dipilih:{" "}
-                      <span className="font-semibold">{paidFile.name}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800">
-                    No. Referensi Transfer (opsional)
-                  </label>
-                  <input
-                    value={paidRef}
-                    onChange={(e) => setPaidRef(e.target.value)}
-                    placeholder="Contoh: MBANK-20260115-XYZ"
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-4 focus:ring-sky-200/40 focus:border-sky-300"
-                    disabled={paidSubmitting}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800">
-                    Catatan (opsional)
-                  </label>
-                  <textarea
-                    value={paidNote}
-                    onChange={(e) => setPaidNote(e.target.value)}
-                    placeholder="Catatan untuk audit (opsional)"
-                    rows={3}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:ring-4 focus:ring-indigo-200/40 focus:border-indigo-300"
-                    disabled={paidSubmitting}
-                  />
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  Periode: {monthLabel(periodKey(paidTarget?.periode))}
                 </div>
               </div>
 
-              <div className="px-6 py-5 border-t border-slate-200 flex items-center justify-end gap-2">
-                <Button
-                  variant="outline"
-                  className="rounded-2xl"
-                  onClick={closePaidModal}
+              <div>
+                <label className="block text-[11px] font-medium text-foreground mb-1">
+                  Bukti Transfer <span className="text-red-500">*</span>
+                </label>
+                <p className="text-[9px] text-muted-foreground mb-2">Format: PDF/JPG/PNG (maks 4MB).</p>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-[10px] file:font-semibold file:bg-slate-100 file:text-foreground hover:file:bg-slate-200"
+                  onChange={(e) => setPaidFile(e.target.files?.[0] || null)}
                   disabled={paidSubmitting}
-                >
-                  Batal
-                </Button>
-
-                <Button
-                  className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold"
-                  onClick={submitMarkPaid}
-                  disabled={paidSubmitting || !paidFile}
-                  title={!paidFile ? "Wajib upload bukti dulu" : "Simpan & tandai paid"}
-                >
-                  {paidSubmitting ? "Menyimpan..." : "Confirm Paid"}
-                </Button>
+                />
               </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-foreground mb-1">
+                  No. Referensi Transfer (opsional)
+                </label>
+                <input
+                  value={paidRef}
+                  onChange={(e) => setPaidRef(e.target.value)}
+                  placeholder="Contoh: MBANK-20260115-XYZ"
+                  className="w-full px-3 py-2 text-xs border border-border rounded bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  disabled={paidSubmitting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-foreground mb-1">
+                  Catatan (opsional)
+                </label>
+                <textarea
+                  value={paidNote}
+                  onChange={(e) => setPaidNote(e.target.value)}
+                  placeholder="Catatan untuk audit"
+                  rows={2}
+                  className="w-full px-3 py-2 text-xs border border-border rounded bg-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 resize-none"
+                  disabled={paidSubmitting}
+                />
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-border bg-slate-50 flex items-center justify-end gap-2">
+              <button
+                onClick={closePaidModal}
+                disabled={paidSubmitting}
+                className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={submitMarkPaid}
+                disabled={paidSubmitting || !paidFile}
+                className="px-3 py-1.5 text-[11px] font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {paidSubmitting ? "Menyimpan..." : "Confirm Paid"}
+              </button>
             </div>
           </div>
         </div>

@@ -134,21 +134,16 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
-        <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
-      </div>
-
+    <div>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">Phase 3</span>
+              <span className="text-[10px] font-semibold text-muted-foreground">Phase 3</span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-4 text-lg font-semibold text-foreground">
               Projects
             </h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -161,14 +156,14 @@ export default function ProjectsPage() {
               variant="outline"
               onClick={load}
               disabled={loading}
-              className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+              className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
             {isHCGA && (
               <Button
                 onClick={openAddModal}
-                className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
               >
                 + Add Project
               </Button>
@@ -177,21 +172,21 @@ export default function ProjectsPage() {
         </div>
 
         {err && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {err}
           </div>
         )}
 
         {success && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-600 border border-emerald-100">
             {success}
           </div>
         )}
 
         {/* Table */}
-        <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-900">Project List</span>
+        <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Project List</span>
             <span className="text-xs text-slate-500">
               {loading ? "Memuat..." : `${rows.length} projects`}
             </span>
@@ -243,7 +238,7 @@ export default function ProjectsPage() {
                         <TableCell className="pl-6 py-4 font-bold text-sky-700">
                           {r.code}
                         </TableCell>
-                        <TableCell className="font-semibold text-slate-900 py-4">
+                        <TableCell className="font-medium text-foreground py-4">
                           {r.name}
                         </TableCell>
                         <TableCell className="text-slate-600 py-4">
@@ -290,7 +285,7 @@ export default function ProjectsPage() {
         {/* Modal Add/Edit */}
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-            <div className="w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 relative my-8">
+            <div className="bg-white border border-border rounded shadow-sm p-4 my-4">
               <h2 className="text-xl font-black text-slate-900 mb-4">
                 {isEdit ? "Edit Project" : "Add New Project"}
               </h2>
@@ -298,75 +293,75 @@ export default function ProjectsPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Code</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Code</label>
                     <input
                       value={form.code}
                       onChange={(e) => setForm({ ...form, code: e.target.value })}
                       required
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Name</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Name</label>
                     <input
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       required
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Client Name</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Client Name</label>
                     <input
                       value={form.client_name}
                       onChange={(e) => setForm({ ...form, client_name: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">City</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">City</label>
                     <input
                       value={form.city}
                       onChange={(e) => setForm({ ...form, city: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">Location Details</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">Location Details</label>
                   <input
                     value={form.location}
                     onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">Start Date</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">Start Date</label>
                     <input
                       type="date"
                       value={form.start_date}
                       onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-slate-800 mb-1">End Date</label>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">End Date</label>
                     <input
                       type="date"
                       value={form.end_date}
                       onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                      className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-6">
+                <div className="flex gap-4">
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -375,7 +370,7 @@ export default function ProjectsPage() {
                       onChange={(e) => setForm({ ...form, is_outside_city: e.target.checked })}
                       className="h-4 w-4 rounded border-slate-200 text-sky-600 focus:ring-sky-500/40"
                     />
-                    <label htmlFor="is_outside_city" className="text-sm font-semibold text-slate-800 cursor-pointer select-none">
+                    <label htmlFor="is_outside_city" className="text-xs font-semibold text-slate-800 cursor-pointer select-none">
                       Outside City
                     </label>
                   </div>
@@ -387,18 +382,18 @@ export default function ProjectsPage() {
                       onChange={(e) => setForm({ ...form, is_client_provide_meal: e.target.checked })}
                       className="h-4 w-4 rounded border-slate-200 text-sky-600 focus:ring-sky-500/40"
                     />
-                    <label htmlFor="is_client_provide_meal" className="text-sm font-semibold text-slate-800 cursor-pointer select-none">
+                    <label htmlFor="is_client_provide_meal" className="text-xs font-semibold text-slate-800 cursor-pointer select-none">
                       Client Provide Meal
                     </label>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">Status</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">Status</label>
                   <select
                     value={form.status}
                     onChange={(e) => setForm({ ...form, status: e.target.value })}
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   >
                     <option value="active">Active</option>
                     <option value="completed">Completed</option>
@@ -407,12 +402,12 @@ export default function ProjectsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">Description</label>
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">Description</label>
                   <textarea
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     rows="2"
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-2 text-sm outline-none focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
@@ -421,13 +416,13 @@ export default function ProjectsPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setModalOpen(false)}
-                    className="rounded-2xl border-slate-200 hover:bg-slate-50"
+                    className="px-4 py-1.5 bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                    className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                   >
                     Save Project
                   </Button>

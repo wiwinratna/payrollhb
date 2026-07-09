@@ -126,29 +126,24 @@ export default function AllowanceTypePage() {
 
   if (!isHCGA) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
         Forbidden: Anda tidak memiliki akses ke halaman ini. Halaman ini hanya untuk HCGA.
       </div>
     );
   }
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
-        <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
-      </div>
-
+    <div>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">Master Data</span>
+              <span className="text-[10px] font-semibold text-muted-foreground">Master Data</span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
-              Allowance Types
+            <h1 className="mt-4 text-lg font-semibold text-foreground">
+              Jenis Tunjangan
             </h1>
             <p className="mt-1 text-sm text-slate-600">
               Kelola master jenis tunjangan beserta metode perhitungan dan sub-tipe partner yang berhak menerimanya.
@@ -160,35 +155,35 @@ export default function AllowanceTypePage() {
               variant="outline"
               onClick={load}
               disabled={loading}
-              className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+              className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              {loading ? "Refreshing..." : "Refresh"}
+              {loading ? "Menyegarkan..." : "Segarkan"}
             </Button>
             <Button
               onClick={openAddModal}
-              className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+              className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
             >
-              + Add Allowance Type
+              + Tambah Tunjangan
             </Button>
           </div>
         </div>
 
         {err && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {err}
           </div>
         )}
 
         {success && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-600 border border-emerald-100">
             {success}
           </div>
         )}
 
         {/* Table list */}
-        <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-900">Allowance Types List</span>
+        <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Daftar Jenis Tunjangan</span>
             <span className="text-xs text-slate-500">
               {loading ? "Memuat..." : `${rows.length} jenis tunjangan`}
             </span>
@@ -199,13 +194,13 @@ export default function AllowanceTypePage() {
               <Table className="min-w-[800px]">
                 <TableHeader>
                   <TableRow className="bg-slate-50/80">
-                    <TableHead className="text-slate-700 pl-6 w-[150px]">Code</TableHead>
-                    <TableHead className="text-slate-700 w-[200px]">Name</TableHead>
-                    <TableHead className="text-slate-700 w-[150px]">Calculation Basis</TableHead>
-                    <TableHead className="text-slate-700 w-[120px]">Applies To</TableHead>
-                    <TableHead className="text-slate-700 w-[80px]">Order</TableHead>
+                    <TableHead className="text-slate-700 pl-6 w-[150px]">Kode</TableHead>
+                    <TableHead className="text-slate-700 w-[200px]">Nama</TableHead>
+                    <TableHead className="text-slate-700 w-[150px]">Dasar Perhitungan</TableHead>
+                    <TableHead className="text-slate-700 w-[120px]">Berlaku Untuk</TableHead>
+                    <TableHead className="text-slate-700 w-[80px]">Urutan</TableHead>
                     <TableHead className="text-slate-700 w-[100px]">Status</TableHead>
-                    <TableHead className="text-center text-slate-700 w-[160px] pr-6">Action</TableHead>
+                    <TableHead className="text-center text-slate-700 w-[160px] pr-6">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
 
@@ -213,7 +208,7 @@ export default function AllowanceTypePage() {
                   {loading && (
                     <TableRow>
                       <TableCell colSpan={7} className="py-12 text-center text-slate-500">
-                        Loading data...
+                        Memuat data...
                       </TableCell>
                     </TableRow>
                   )}
@@ -239,7 +234,7 @@ export default function AllowanceTypePage() {
                         <TableCell className="pl-6 py-4 font-bold text-sky-700 uppercase">
                           {r.code}
                         </TableCell>
-                        <TableCell className="font-semibold text-slate-900 py-4">
+                        <TableCell className="font-medium text-foreground py-4">
                           <div className="font-semibold">{r.name}</div>
                           <div className="text-[11px] text-slate-500 font-normal">{r.description || "-"}</div>
                         </TableCell>
@@ -298,14 +293,14 @@ export default function AllowanceTypePage() {
         {/* Modal Add/Edit */}
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 relative">
+            <div className="bg-white border border-border rounded shadow-sm p-4 my-4">
               <h2 className="text-xl font-black text-slate-900 mb-4">
                 {isEdit ? "Edit Allowance Type" : "Add Allowance Type"}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Allowance Code
                   </label>
                   <input
@@ -314,12 +309,12 @@ export default function AllowanceTypePage() {
                     disabled={isEdit}
                     placeholder="e.g. meal, transport_trip"
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40 disabled:bg-slate-50 disabled:text-slate-400"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Name
                   </label>
                   <input
@@ -327,18 +322,18 @@ export default function AllowanceTypePage() {
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="e.g. Tunjangan Makan"
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Calculation Type
                   </label>
                   <select
                     value={form.calculation_type}
                     onChange={(e) => setForm({ ...form, calculation_type: e.target.value })}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   >
                     <option value="per_mandays">per_mandays</option>
                     <option value="per_trip">per_trip</option>
@@ -348,13 +343,13 @@ export default function AllowanceTypePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Applies To (Partner Type)
                   </label>
                   <select
                     value={form.applies_to}
                     onChange={(e) => setForm({ ...form, applies_to: e.target.value })}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   >
                     <option value="all">all</option>
                     <option value="project_only">project_only</option>
@@ -363,7 +358,7 @@ export default function AllowanceTypePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Display Order
                   </label>
                   <input
@@ -372,12 +367,12 @@ export default function AllowanceTypePage() {
                     value={form.display_order}
                     onChange={(e) => setForm({ ...form, display_order: parseInt(e.target.value) || 0 })}
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Description
                   </label>
                   <textarea
@@ -385,7 +380,7 @@ export default function AllowanceTypePage() {
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     placeholder="Deskripsi jenis tunjangan..."
                     rows="2"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40 resize-none"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
@@ -397,7 +392,7 @@ export default function AllowanceTypePage() {
                     onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                     className="h-4 w-4 rounded border-slate-200 text-sky-600 focus:ring-sky-500/40"
                   />
-                  <label htmlFor="is_active" className="text-sm font-semibold text-slate-800 cursor-pointer select-none">
+                  <label htmlFor="is_active" className="text-xs font-semibold text-slate-800 cursor-pointer select-none">
                     Allowance is Active
                   </label>
                 </div>
@@ -407,13 +402,13 @@ export default function AllowanceTypePage() {
                     type="button"
                     variant="outline"
                     onClick={() => setModalOpen(false)}
-                    className="rounded-2xl border-slate-200 hover:bg-slate-50"
+                    className="px-4 py-1.5 bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                    className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                   >
                     Save
                   </Button>

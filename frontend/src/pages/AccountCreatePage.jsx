@@ -205,7 +205,7 @@ export default function AccountCreatePage() {
   }
 
   return (
-    <div className="relative">
+    <div>
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/45 blur-3xl" />
         <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/35 blur-3xl" />
@@ -215,14 +215,14 @@ export default function AccountCreatePage() {
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">
+              <span className="text-[10px] font-semibold text-muted-foreground">
                 Human Plus Institute
               </span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-4 text-lg font-semibold text-foreground">
               Create Account
             </h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -233,7 +233,7 @@ export default function AccountCreatePage() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              className="rounded-2xl bg-white/70 border-slate-200 hover:bg-white"
+              className="rounded bg-white/70 border-slate-200 hover:bg-white"
               onClick={() => nav(-1)}
               disabled={submitting}
             >
@@ -242,7 +242,7 @@ export default function AccountCreatePage() {
 
             <Button
               variant="outline"
-              className="rounded-2xl border-slate-200 bg-white hover:bg-slate-50"
+              className="rounded border-slate-200 bg-white hover:bg-slate-50"
               onClick={reset}
               disabled={submitting}
             >
@@ -253,16 +253,16 @@ export default function AccountCreatePage() {
 
         {/* Loading session */}
         {loadingSession && (
-          <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur shadow-[0_16px_50px_rgba(2,6,23,0.06)] p-6">
-            <div className="text-sm font-semibold text-slate-800">Loading...</div>
-            <div className="text-xs text-slate-500 mt-1">
+          <div className="bg-white border border-border rounded shadow-sm p-4">
+            <div className="text-xs font-semibold text-slate-800">Loading...</div>
+            <div className="text-xs text-[10px] text-muted-foreground mt-0.5">
               Menyiapkan sesi akun
             </div>
           </div>
         )}
 
         {!loadingSession && (
-          <Card className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)]">
+          <Card className="bg-white border border-border rounded shadow-sm">
             <CardHeader>
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
@@ -277,7 +277,7 @@ export default function AccountCreatePage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="rounded-2xl border-slate-200 bg-white hover:bg-slate-50"
+                      className="rounded border-slate-200 bg-white hover:bg-slate-50"
                       onClick={genPassword}
                       disabled={submitting}
                     >
@@ -287,7 +287,7 @@ export default function AccountCreatePage() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="rounded-2xl border-slate-200 bg-white hover:bg-slate-50"
+                      className="rounded border-slate-200 bg-white hover:bg-slate-50"
                       onClick={copyGenerated}
                       disabled={submitting || !lastGeneratedPw}
                     >
@@ -300,12 +300,12 @@ export default function AccountCreatePage() {
 
             <CardContent>
               {err && (
-                <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-800 px-4 py-3 text-sm">
+                <div className="mb-4 rounded border border-rose-200 bg-rose-50 text-rose-800 px-4 py-3 text-sm">
                   {err}
                 </div>
               )}
               {ok && (
-                <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
+                <div className="mb-4 rounded border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm">
                   {ok}
                 </div>
               )}
@@ -317,7 +317,7 @@ export default function AccountCreatePage() {
                     Akun dibuat ✅
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white/70 p-4">
+                  <div className="bg-white border border-border rounded shadow-sm p-4">
                     <div className="text-sm">
                       Nama: <b>{createdUser.name}</b>
                     </div>
@@ -335,7 +335,7 @@ export default function AccountCreatePage() {
 
                   <div className="flex justify-end gap-2">
                     <Button
-                      className="rounded-2xl bg-slate-900 text-white font-extrabold hover:bg-slate-800"
+                      className="bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                       onClick={reset}
                     >
                       Buat Akun Lagi
@@ -446,7 +446,7 @@ export default function AccountCreatePage() {
                     </div>
 
                     {!!lastGeneratedPw && (
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                      <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
                         Password otomatis sudah di-generate. Pastikan kamu simpan/copy
                         sebelum submit.
                       </div>
@@ -462,7 +462,7 @@ export default function AccountCreatePage() {
                         !form.employee_id ||
                         selectableEmployees.length === 0
                       }
-                      className="rounded-2xl bg-slate-900 text-white font-extrabold hover:bg-slate-800"
+                      className="bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                     >
                       {submitting ? "Creating..." : "Create Account"}
                     </Button>
@@ -470,7 +470,7 @@ export default function AccountCreatePage() {
 
                   {/* hint kalau list kosong */}
                   {!loadingEmp && selectableEmployees.length === 0 && (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                    <div className="rounded border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
                       Semua employee sudah punya akun, atau belum ada employee yang bisa
                       dipilih.
                     </div>

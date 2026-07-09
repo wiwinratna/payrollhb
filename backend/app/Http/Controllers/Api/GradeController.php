@@ -27,7 +27,7 @@ class GradeController extends Controller
             return $this->forbid();
         }
 
-        return response()->json(Grade::orderBy('level')->get());
+        return response()->json(Grade::with(['allowanceRates.allowanceType'])->orderBy('level')->get());
     }
 
     public function show(Request $request, Grade $grade)

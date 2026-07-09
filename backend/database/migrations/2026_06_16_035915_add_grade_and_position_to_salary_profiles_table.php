@@ -22,12 +22,27 @@ return new class extends Migration
         });
 
         // Copy current employee grade and position to historical profiles
-        \DB::table('salary_profiles')
-            ->join('employees', 'salary_profiles.employee_id', '=', 'employees.id')
-            ->update([
-                'salary_profiles.grade_id' => \DB::raw('employees.grade_id'),
-                'salary_profiles.position' => \DB::raw('employees.position'),
-            ]);
+        if (\DB::getDriverName() === 'sqlite') {
+            $profiles = \DB::table('salary_profiles')->get();
+            foreach ($profiles as $p) {
+                $emp = \DB::table('employees')->where('id', $p->employee_id)->first();
+                if ($emp) {
+                    \DB::table('salary_profiles')
+                        ->where('id', $p->id)
+                        ->update([
+                            'grade_id' => $emp->grade_id,
+                            'position' => $emp->position,
+                        ]);
+                }
+            }
+        } else {
+            \DB::table('salary_profiles')
+                ->join('employees', 'salary_profiles.employee_id', '=', 'employees.id')
+                ->update([
+                    'salary_profiles.grade_id' => \DB::raw('employees.grade_id'),
+                    'salary_profiles.position' => \DB::raw('employees.position'),
+                ]);
+        }
     }
 
     /**

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { saveAuth } from "@/lib/auth";
+import { Building2, Users, DollarSign, FolderOpen, BarChart3, Eye, EyeOff, Lock } from "lucide-react";
 
 function getHomePath(user) {
   const role = String(user?.role || "").toLowerCase();
@@ -59,150 +60,152 @@ export default function Login() {
     }
   };
 
+  const [showPassword, setShowPassword] = useState(false);
+
   const label = "text-[11px] font-semibold text-slate-700";
   const input =
-    "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-200/60 disabled:opacity-60";
+    "w-full rounded border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:opacity-60";
 
-  const Chip = ({ children }) => (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/10 px-3 py-1.5 text-xs text-white/90 backdrop-blur">
-      <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-      {children}
-    </div>
-  );
-
-  const Mini = ({ title, desc }) => (
-    <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
-      <div className="text-sm font-semibold text-white">{title}</div>
-      <div className="mt-1 text-[12px] text-white/80 leading-relaxed">{desc}</div>
+  const StatCard = ({ title, value, icon: Icon, color }) => (
+    <div className="rounded border border-white/10 bg-white/5 p-4 backdrop-blur flex items-center gap-4">
+      <div className={`w-10 h-10 rounded bg-white/10 flex items-center justify-center`} style={{ color }}>
+        <Icon size={18} />
+      </div>
+      <div>
+        <div className="text-xl font-bold text-white leading-none">{value}</div>
+        <div className="text-[11px] text-white/60 mt-1">{title}</div>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen w-full bg-slate-50">
-      <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
-        {/* ===================== LEFT (cute & elegan) ===================== */}
-        <section className="relative overflow-hidden px-8 py-10 lg:px-12 lg:py-12 text-white">
-          {/* soft pastel gradient */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(56,189,248,0.95),transparent_45%),radial-gradient(circle_at_80%_20%,rgba(99,102,241,0.85),transparent_50%),linear-gradient(135deg,rgba(2,132,199,0.90),rgba(79,70,229,0.88))]" />
+    <div className="min-h-screen w-full bg-white flex">
+      {/* ===================== LEFT SIDE (Dark Navy) ===================== */}
+      <section className="hidden lg:flex w-[45%] relative bg-[#0B1426] flex-col px-10 py-12 border-r border-slate-800">
+        {/* Subtle grid background */}
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle,rgba(255,255,255,0.4)_1px,transparent_1px)] bg-[length:24px_24px]" />
 
-          {/* cute blobs */}
-          <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-white/20 blur-3xl" />
-          <div className="absolute -bottom-28 -right-28 h-80 w-80 rounded-full bg-white/15 blur-3xl" />
-          <div className="absolute top-1/3 -right-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-
-          {/* subtle sparkle dots */}
-          <div className="absolute inset-0 opacity-[0.20] bg-[radial-gradient(circle,rgba(255,255,255,0.55)_1px,transparent_1px)] bg-[length:22px_22px]" />
-
-          <div className="relative h-full flex flex-col justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 backdrop-blur">
-                <span className="h-2 w-2 rounded-full bg-white" />
-                <span className="text-sm font-semibold">Human Plus Institute</span>
-              </div>
-
-              <h1 className="mt-10 text-[40px] font-black leading-tight tracking-tight">
-                Payroll
-                <span className="block text-white/90">Internal System</span>
-              </h1>
-
-              <p className="mt-4 max-w-md text-white/90 leading-relaxed">
-                Sistem internal untuk pengelolaan proses penggajian karyawan secara
-                terpusat dan terkontrol.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-2">
-                <Chip>Komponen gaji</Chip>
-                <Chip>Periode payroll</Chip>
-                <Chip>Monitoring proses</Chip>
-                <Chip>Informasi gaji</Chip>
-              </div>
-
-              {/* mini blocks, bukan card gede */}
-              <div className="mt-8 grid max-w-md grid-cols-1 sm:grid-cols-2 gap-3">
-                <Mini
-                  title="Perhitungan Payroll"
-                  desc="Perhitungan gaji dilakukan berdasarkan komponen yang telah ditetapkan."
-                />
-                <Mini
-                  title="Kebutuhan Internal"
-                  desc="Informasi gaji digunakan untuk keperluan internal institute."
-                />
-              </div>
-
-              <p className="mt-6 max-w-md text-[12px] text-white/75 leading-relaxed">
-                Akses hanya untuk pengguna yang memiliki akun dan kewenangan yang sesuai.
-              </p>
-            </div>
-
-            <div className="text-xs text-white/70">
-              © {new Date().getFullYear()} Human Plus Institute
-            </div>
+        {/* Header Logo */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-9 h-9 rounded bg-blue-500 flex items-center justify-center text-white">
+            <Building2 size={18} />
           </div>
-        </section>
+          <div>
+            <div className="text-[13px] font-bold text-white leading-tight">Human Plus Institute</div>
+            <div className="text-[10px] text-white/60">Payroll Management System</div>
+          </div>
+        </div>
 
-        {/* ===================== RIGHT ===================== */}
-        <section className="flex items-center justify-center px-6 py-10">
-          <div className="w-full max-w-md">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-slate-500">Login</div>
-              {/* ✅ tidak ada register */}
-              <div className="text-xs text-slate-500">
-                Akun dibuat oleh <span className="font-semibold text-slate-700">HCGA</span>
-              </div>
+        <div className="relative z-10 mt-24 mb-10">
+          <h1 className="text-[42px] font-bold text-white leading-[1.1] tracking-tight">
+            Payroll
+            <br />
+            Internal System
+          </h1>
+        </div>
+
+        <div className="relative z-10 grid grid-cols-2 gap-4 max-w-md">
+          <StatCard title="Karyawan Aktif" value="9" icon={Users} color="#60A5FA" />
+          <StatCard title="Payroll Records" value="35" icon={DollarSign} color="#34D399" />
+          <StatCard title="Proyek Berjalan" value="4" icon={FolderOpen} color="#A78BFA" />
+          <StatCard title="Periode Aktif" value="2" icon={BarChart3} color="#FBBF24" />
+        </div>
+
+        <div className="relative z-10 mt-auto text-[11px] text-white/40">
+          © {new Date().getFullYear()} Human Plus Institute
+        </div>
+      </section>
+
+      {/* ===================== RIGHT SIDE (Login Form) ===================== */}
+      <section className="flex-1 flex items-center justify-center px-6 py-10 bg-white">
+        <div className="w-full max-w-[400px]">
+          {/* Logo at the top of the form */}
+          <div className="mb-8">
+            <img src="/logo.png" alt="Human Plus Logo" className="h-10 object-contain" />
+          </div>
+
+          <h2 className="text-2xl font-bold text-slate-900">Login Payroll</h2>
+          <p className="mt-1.5 text-[13px] text-slate-500">
+            Gunakan akun yang telah dibuat oleh HR/GA.
+          </p>
+
+          {err && (
+            <div className="mt-5 rounded bg-rose-50 px-4 py-3 text-[12px] font-medium text-rose-600 border border-rose-100 flex items-center gap-2">
+              <span>{err}</span>
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} className="mt-8 space-y-5">
+            <div className="space-y-1.5">
+              <div className={label}>Email</div>
+              <input
+                className={input}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="staff@tres.com"
+                type="email"
+                autoComplete="email"
+                disabled={loading}
+                required
+              />
             </div>
 
-            <h2 className="mt-3 text-3xl font-black text-slate-900">Login Payroll</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Silakan masuk menggunakan akun yang telah dibuat oleh HCGA.
-            </p>
-
-            {err && (
-              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {err}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className={label}>Password</div>
+                <a href="#" className="text-[11px] text-blue-600 hover:underline font-medium">
+                  Lupa password?
+                </a>
               </div>
-            )}
-
-            <form onSubmit={onSubmit} className="mt-6 space-y-5">
-              <div className="space-y-2">
-                <div className={label}>Email</div>
+              <div className="relative">
                 <input
                   className={input}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@humanplus.id"
-                  type="email"
-                  autoComplete="email"
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className={label}>Password</div>
-                <input
-                  className={`${input} focus:border-indigo-400 focus:ring-indigo-200/60`}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  type="password"
+                  placeholder="••••••••••"
+                  type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   disabled={loading}
+                  required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
+            </div>
 
-              <button
-                disabled={loading}
-                className="w-full rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-3 text-sm font-extrabold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60"
-              >
-                {loading ? "Loading..." : "Login"}
-              </button>
+            <button
+              disabled={loading}
+              className="w-full mt-2 px-4 py-3 bg-blue-600 rounded text-[13px] font-medium text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-70 flex items-center justify-center gap-2"
+            >
+              {loading ? "Loading..." : "Masuk"}
+            </button>
+            
+            <div className="py-4 flex items-center justify-center gap-3">
+              <div className="h-px bg-slate-200 flex-1" />
+              <span className="text-[10px] text-slate-400 lowercase tracking-widest">akses terbatas</span>
+              <div className="h-px bg-slate-200 flex-1" />
+            </div>
 
-              <div className="pt-2 text-center text-[11px] text-slate-400">
-                © {new Date().getFullYear()} Human Plus Institute — Internal System
+            <div className="rounded border border-slate-200 bg-slate-50 p-4 flex gap-3">
+              <div className="mt-0.5 text-blue-500 bg-blue-100 p-1 rounded">
+                <Lock size={14} />
               </div>
-            </form>
-          </div>
-        </section>
-      </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Sistem ini hanya untuk karyawan internal. Hubungi <strong>HR/GA</strong> jika belum memiliki akun.
+              </p>
+            </div>
+            
+            <div className="pt-6 text-center text-[10px] text-slate-400">
+              © {new Date().getFullYear()} Human Plus Institute
+            </div>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }

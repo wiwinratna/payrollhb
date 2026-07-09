@@ -70,13 +70,12 @@ class MandaysRecalculationService
         $summary->mandays_outside_city = $attendances->where('attendance_type', 'outside_city')->count();
         $summary->mandays_leave = $attendances->where('attendance_type', 'leave')->count();
         
-        // Sum of all working mandays
+        // Sum of all working mandays (WFH is NOT counted for daily mandays multiplier)
         $summary->total_mandays = $summary->mandays_project + 
             $summary->mandays_ho_wfo + 
-            $summary->mandays_ho_wfh + 
             $summary->mandays_training + 
             $summary->mandays_outside_city;
-            
+
         // 2. Calculate from Project Assignments
         $assignments = ProjectAssignment::where('employee_id', $employeeId)
             ->where('period_month', $periodMonth)

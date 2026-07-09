@@ -10,12 +10,12 @@ class PayrollPolicy
 {
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, ['staff','fat','director'], true);
+        return in_array($user->role, ['staff','fat','director','hcga'], true);
     }
 
     public function view(User $user, Payroll $payroll): bool
     {
-        if (in_array($user->role, ['fat','director'], true)) return true;
+        if (in_array($user->role, ['fat','director','hcga'], true)) return true;
 
         if ($user->role !== 'staff') return false;
 

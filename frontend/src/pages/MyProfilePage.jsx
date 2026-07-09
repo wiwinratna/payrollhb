@@ -287,7 +287,7 @@ export default function MyProfilePage() {
   // ===== LOADING GLOBAL =====
   if (accLoading || (isStaff && empLoading)) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur shadow-[0_16px_50px_rgba(2,6,23,0.06)] p-6">
+      <div className="bg-white border border-border rounded shadow-sm p-4">
         <div className="text-sm text-slate-600">Loading profil...</div>
       </div>
     );
@@ -296,8 +296,8 @@ export default function MyProfilePage() {
   return (
     <div className="space-y-4">
       {/* HEADER */}
-      <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur shadow-[0_16px_50px_rgba(2,6,23,0.06)] p-7">
-        <h1 className="text-3xl font-black tracking-tight text-slate-900">My Profile</h1>
+      <div className="bg-white border border-border rounded shadow-sm p-4">
+        <h1 className="text-lg font-semibold text-foreground">My Profile</h1>
         <p className="mt-1 text-sm text-slate-600">
           Kelola informasi akun dan keamanan.{" "}
           {isStaff ? "Data karyawan bisa diubah lewat Edit." : "Untuk admin, fokus di akun & password."}
@@ -305,10 +305,10 @@ export default function MyProfilePage() {
       </div>
 
       {/* ACCOUNT SETTINGS (ALL ROLES) */}
-      <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur shadow-[0_16px_50px_rgba(2,6,23,0.06)] p-7">
+      <div className="bg-white border border-border rounded shadow-sm p-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Account Settings</div>
+            <div className="text-sm font-medium text-foreground">Account Settings</div>
             <div className="mt-1 text-sm text-slate-600">
               {accEditing ? "Mode edit aktif. Ubah nama lalu simpan." : "Lihat info akun. Klik Edit untuk mengubah nama."}
             </div>
@@ -321,20 +321,20 @@ export default function MyProfilePage() {
                 setAccOk("");
                 setAccEditing(true);
               }}
-              className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+              className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
             >
               Edit
             </Button>
           ) : (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={onCancelAccount} disabled={accSaving} className="rounded-2xl font-extrabold">
+              <Button variant="outline" onClick={onCancelAccount} disabled={accSaving} className="rounded font-extrabold">
                 Cancel
               </Button>
 
               <Button
                 onClick={onSaveAccount}
                 disabled={accSaving || !accDirty}
-                className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
               >
                 {accSaving ? "Menyimpan..." : "Simpan"}
               </Button>
@@ -343,12 +343,12 @@ export default function MyProfilePage() {
         </div>
 
         {accErr && (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mt-4 rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {accErr}
           </div>
         )}
         {accOk && (
-          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="mt-4 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-600 border border-emerald-100">
             {accOk}
           </div>
         )}
@@ -361,29 +361,29 @@ export default function MyProfilePage() {
       </div>
 
       {/* PASSWORD SETTINGS (ALL ROLES) */}
-      <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur shadow-[0_16px_50px_rgba(2,6,23,0.06)] p-7">
+      <div className="bg-white border border-border rounded shadow-sm p-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Security</div>
+            <div className="text-sm font-medium text-foreground">Security</div>
             <div className="mt-1 text-sm text-slate-600">Disarankan ganti password secara berkala.</div>
           </div>
 
           <Button
             onClick={onSavePassword}
             disabled={pwSaving}
-            className="rounded-2xl bg-slate-900 text-white font-extrabold hover:bg-slate-800"
+            className="bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
           >
             {pwSaving ? "Menyimpan..." : "Update Password"}
           </Button>
         </div>
 
         {pwErr && (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="mt-4 rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {pwErr}
           </div>
         )}
         {pwOk && (
-          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="mt-4 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-600 border border-emerald-100">
             {pwOk}
           </div>
         )}
@@ -416,9 +416,9 @@ export default function MyProfilePage() {
       {/* EMPLOYEE SECTION (STAFF ONLY) */}
       {isStaff && (
         <>
-          <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur shadow-[0_16px_50px_rgba(2,6,23,0.06)] p-7">
-            <div className="text-sm font-semibold text-slate-900">Info Karyawan (read-only)</div>
-            <div className="mt-4 grid md:grid-cols-4 gap-6">
+          <div className="bg-white border border-border rounded shadow-sm p-4">
+            <div className="text-sm font-medium text-foreground">Info Karyawan (read-only)</div>
+            <div className="mt-4 grid md:grid-cols-4 gap-4">
               <Field label="Employee Code" value={meta.employee_code} />
               <Field label="Department" value={meta.department} />
               <Field label="Position" value={meta.position} />
@@ -426,10 +426,10 @@ export default function MyProfilePage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur shadow-[0_16px_50px_rgba(2,6,23,0.06)] p-7">
+          <div className="bg-white border border-border rounded shadow-sm p-4">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <div className="text-sm font-semibold text-slate-900">Private / Sensitive Info</div>
+                <div className="text-sm font-medium text-foreground">Private / Sensitive Info</div>
                 <div className="mt-1 text-sm text-slate-600">
                   {isEditingEmp ? "Mode edit aktif. Ubah data lalu simpan." : "Lihat data pribadi & rekening. Klik Edit untuk mengubah."}
                 </div>
@@ -442,20 +442,20 @@ export default function MyProfilePage() {
                     setEmpOk("");
                     setIsEditingEmp(true);
                   }}
-                  className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                  className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                 >
                   Edit
                 </Button>
               ) : (
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={onCancelEmp} disabled={empSaving} className="rounded-2xl font-extrabold">
+                  <Button variant="outline" onClick={onCancelEmp} disabled={empSaving} className="rounded font-extrabold">
                     Cancel
                   </Button>
 
                   <Button
                     onClick={onSaveEmp}
                     disabled={empSaving || !empDirty}
-                    className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                    className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                   >
                     {empSaving ? "Menyimpan..." : "Simpan"}
                   </Button>
@@ -464,12 +464,12 @@ export default function MyProfilePage() {
             </div>
 
             {empErr && (
-              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <div className="mt-4 rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
                 {empErr}
               </div>
             )}
             {empOk && (
-              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <div className="mt-4 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-600 border border-emerald-100">
                 {empOk}
               </div>
             )}
@@ -505,7 +505,7 @@ function Field({ label, value }) {
   return (
     <div className="space-y-1">
       <div className="text-xs text-slate-500">{label}</div>
-      <div className="font-semibold text-slate-900">{value ?? "-"}</div>
+      <div className="font-medium text-foreground">{value ?? "-"}</div>
     </div>
   );
 }
@@ -517,7 +517,7 @@ function Input({ label, ...props }) {
       <input
         {...props}
         className={[
-          "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition",
+          "w-full rounded border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition",
           "focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40",
           props.disabled ? "opacity-70 cursor-not-allowed bg-slate-50" : "",
         ].join(" ")}
@@ -534,7 +534,7 @@ function Textarea({ label, ...props }) {
         {...props}
         rows={4}
         className={[
-          "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition",
+          "w-full rounded border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition",
           "focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40",
           props.disabled ? "opacity-70 cursor-not-allowed bg-slate-50" : "",
         ].join(" ")}

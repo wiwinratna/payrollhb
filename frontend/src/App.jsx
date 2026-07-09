@@ -12,15 +12,14 @@ import Register from "./pages/Register";
 import DashboardPage from "./pages/DashboardPage";
 
 import PayrollList from "./pages/PayrollList";
-import PayrollCreatePage from "./pages/PayrollCreatePage";
+
 import PayrollDetailPage from "./pages/PayrollDetailPage";
-import PayrollEditPage from "./pages/PayrollEditPage";
 import PayrollBatchPage from "./pages/PayrollBatchPage";
 
 import EmployeesPage from "./pages/EmployeesPage";
 import EmployeeCreatePage from "./pages/EmployeeCreatePage";
 import EmployeeEditPage from "./pages/EmployeeEditPage";
-import SalaryProfileCreatePage from "./pages/SalaryProfileCreatePage";
+
 import EmployeeDetailPage from "./pages/EmployeeDetailPage";
 
 import MyProfilePage from "./pages/MyProfilePage";
@@ -40,6 +39,11 @@ import ProjectAssignmentsPage from "./pages/ProjectAssignmentsPage";
 import SchedulesPage from "./pages/SchedulesPage";
 import AttendancesPage from "./pages/AttendancesPage";
 import MandaysSummaryPage from "./pages/MandaysSummaryPage";
+
+// ACCOUNTING PAGES
+import CoaManagementPage from "./pages/accounting/CoaManagementPage";
+import JournalEntryListPage from "./pages/accounting/JournalEntryListPage";
+import GeneralLedgerPage from "./pages/accounting/GeneralLedgerPage";
 
 function getHomePath(user) {
   const role = String(user?.role || "").toLowerCase();
@@ -122,22 +126,8 @@ export default function App() {
               </RoleRoute>
             }
           />
-          <Route
-            path="/payrolls/new"
-            element={
-              <RoleRoute allow={["fat"]}>
-                <PayrollCreatePage />
-              </RoleRoute>
-            }
-          />
-          <Route
-            path="/payrolls/:id/edit"
-            element={
-              <RoleRoute allow={["fat"]}>
-                <PayrollEditPage />
-              </RoleRoute>
-            }
-          />
+
+
 
           {/* ✅ REPORT PAYROLL: FAT + DIRECTOR */}
           <Route
@@ -184,14 +174,7 @@ export default function App() {
               </RoleRoute>
             }
           />
-          <Route
-            path="/employees/:id/salary-profile/new"
-            element={
-              <RoleRoute allow={["hcga"]}>
-                <SalaryProfileCreatePage />
-              </RoleRoute>
-            }
-          />
+
 
           {/* MASTER DATA (Phase 1) */}
           <Route
@@ -267,6 +250,32 @@ export default function App() {
             element={
               <RoleRoute allow={["hcga", "fat", "director"]}>
                 <MandaysSummaryPage />
+              </RoleRoute>
+            }
+          />
+
+          {/* MODUL AKUNTANSI */}
+          <Route
+            path="/accounting/coa"
+            element={
+              <RoleRoute allow={["fat"]}>
+                <CoaManagementPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/accounting/journals"
+            element={
+              <RoleRoute allow={["fat", "director"]}>
+                <JournalEntryListPage />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/accounting/general-ledger"
+            element={
+              <RoleRoute allow={["fat", "director"]}>
+                <GeneralLedgerPage />
               </RoleRoute>
             }
           />

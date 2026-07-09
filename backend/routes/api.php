@@ -64,13 +64,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/payrolls/{payroll}', [PayrollController::class, 'destroy']);
 
     // workflow actions
-    Route::post('/payrolls/{payroll}/request-payment', [PayrollController::class, 'requestPayment']);
-    Route::post('/payrolls/{payroll}/approve', [PayrollController::class, 'approvePayment']);
-    Route::post('/payrolls/{payroll}/mark-paid', [PayrollController::class, 'markPaid']);
-    Route::post('/payrolls/{payroll}/reject', [PayrollController::class, 'rejectPayment']);
-
+    Route::post('/payrolls/{payroll}/recalculate', [PayrollController::class, 'recalculate']);
+    Route::post('/payrolls/{payroll}/request-approval', [PayrollController::class, 'requestApproval']);
+    Route::post('/payrolls/{payroll}/approve', [PayrollController::class, 'approve']);
+    Route::post('/payrolls/{payroll}/reject', [PayrollController::class, 'reject']);
+    Route::post('/payrolls/{payroll}/pay', [PayrollController::class, 'pay']);
+    
     // export
     Route::get('/payrolls/{payroll}/pdf', [PayrollController::class, 'pdf']);
+
+    // Security Inspection
+    Route::get('/payrolls/{payroll}/inspection', [PayrollController::class, 'inspection']);
+    Route::get('/payrolls/{payroll}/inspection-pdf', [PayrollController::class, 'inspectionPdf']);
 
     Route::get('/payrolls/{payroll}/proof', [PayrollController::class, 'proof']);
 
@@ -93,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // salary profile
     Route::get('/employees/{employee}/salary-profile', [EmployeeController::class, 'salaryProfile']);
+    Route::get('/employees/{employee}/salary-profiles', [EmployeeController::class, 'salaryProfilesList']);
     Route::post('/employees/{employee}/salary-profiles', [EmployeeController::class, 'storeSalaryProfile']);
 
     /*
@@ -144,4 +150,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/mandays-summaries/recalculate', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'recalculate']);
     Route::post('/mandays-summaries/{mandaysSummary}/finalize', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'finalize']);
     Route::post('/mandays-summaries/{mandaysSummary}/unfinalize', [\App\Http\Controllers\Api\MandaysSummaryController::class, 'unfinalize']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | MODUL AKUNTANSI (Accounting Module)
+    |--------------------------------------------------------------------------
+    */
+    Route::apiResource('accounting/coa', \App\Http\Controllers\Api\ChartOfAccountController::class);
+    Route::apiResource('accounting/journals', \App\Http\Controllers\Api\JournalEntryController::class)->except(['update']);
+    Route::get('accounting/general-ledger', [\App\Http\Controllers\Api\GeneralLedgerController::class, 'index']);
 });

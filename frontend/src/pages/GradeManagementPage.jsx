@@ -32,6 +32,8 @@ export default function GradeManagementPage() {
     level: 1,
     description: "",
     is_active: true,
+    default_base_salary: "",
+    default_mandays_rate: "",
   });
 
   async function load() {
@@ -60,6 +62,8 @@ export default function GradeManagementPage() {
       level: rows.length > 0 ? Math.max(...rows.map((r) => r.level)) + 1 : 1,
       description: "",
       is_active: true,
+      default_base_salary: "",
+      default_mandays_rate: "",
     });
     setIsEdit(false);
     setModalOpen(true);
@@ -72,6 +76,8 @@ export default function GradeManagementPage() {
       level: r.level,
       description: r.description || "",
       is_active: r.is_active,
+      default_base_salary: r.default_base_salary !== null && r.default_base_salary !== undefined ? String(r.default_base_salary) : "",
+      default_mandays_rate: r.default_mandays_rate !== null && r.default_mandays_rate !== undefined ? String(r.default_mandays_rate) : "",
     });
     setEditId(r.id);
     setIsEdit(true);
@@ -82,18 +88,23 @@ export default function GradeManagementPage() {
     e.preventDefault();
     setErr("");
     setSuccess("");
+    const payload = {
+      ...form,
+      default_base_salary: form.default_base_salary !== "" ? Number(form.default_base_salary) : null,
+      default_mandays_rate: form.default_mandays_rate !== "" ? Number(form.default_mandays_rate) : null,
+    };
     try {
       if (isEdit) {
         const updated = await api(`/master/grades/${editId}`, {
           method: "PUT",
-          body: form,
+          body: payload,
         });
         setRows((prev) => prev.map((x) => (x.id === editId ? updated : x)));
         setSuccess("Grade berhasil diperbarui");
       } else {
         const created = await api("/master/grades", {
           method: "POST",
-          body: form,
+          body: payload,
         });
         setRows((prev) => [...prev, created].sort((a, b) => a.level - b.level));
         setSuccess("Grade baru berhasil dibuat");
@@ -120,29 +131,24 @@ export default function GradeManagementPage() {
 
   if (!isHCGA) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
         Forbidden: Anda tidak memiliki akses ke halaman ini. Halaman ini hanya untuk HCGA.
       </div>
     );
   }
 
   return (
-    <div className="relative">
+    <div>
       {/* Background gradients */}
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-sky-200/50 blur-3xl" />
-        <div className="absolute -bottom-44 -right-44 h-[620px] w-[620px] rounded-full bg-indigo-200/45 blur-3xl" />
-      </div>
-
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 shadow-sm">
+            <div className="hidden">
               <span className="h-2 w-2 rounded-full bg-sky-500" />
-              <span className="text-sm font-semibold text-slate-700">Master Data</span>
+              <span className="text-[10px] font-semibold text-muted-foreground">Master Data</span>
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-4 text-lg font-semibold text-foreground">
               Grade Management
             </h1>
             <p className="mt-1 text-sm text-slate-600">
@@ -155,13 +161,13 @@ export default function GradeManagementPage() {
               variant="outline"
               onClick={load}
               disabled={loading}
-              className="rounded-2xl bg-white/70 backdrop-blur border-slate-200 hover:bg-white"
+              className="bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               {loading ? "Refreshing..." : "Refresh"}
             </Button>
             <Button
               onClick={openAddModal}
-              className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+              className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
             >
               + Add Grade
             </Button>
@@ -169,21 +175,21 @@ export default function GradeManagementPage() {
         </div>
 
         {err && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <div className="rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
             {err}
           </div>
         )}
 
         {success && (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-600 border border-emerald-100">
             {success}
           </div>
         )}
 
         {/* Grades Table */}
-        <div className="rounded-3xl border border-slate-200 bg-white/75 backdrop-blur-xl shadow-[0_16px_50px_rgba(2,6,23,0.06)] overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-200/70 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-900">Grade List</span>
+        <div className="bg-white border border-border rounded shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200/70 flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Grade List</span>
             <span className="text-xs text-slate-500">
               {loading ? "Memuat..." : `${rows.length} grade`}
             </span>
@@ -191,14 +197,16 @@ export default function GradeManagementPage() {
 
           <div className="overflow-x-auto">
             <div className="px-8">
-              <Table className="min-w-[700px]">
+              <Table className="min-w-[900px]">
                 <TableHeader>
                   <TableRow className="bg-slate-50/80">
                     <TableHead className="text-slate-700 pl-6 w-[120px]">Code</TableHead>
-                    <TableHead className="text-slate-700 w-[200px]">Name</TableHead>
-                    <TableHead className="text-slate-700 w-[100px]">Level</TableHead>
-                    <TableHead className="text-slate-700 w-[300px]">Description</TableHead>
-                    <TableHead className="text-slate-700 w-[120px]">Status</TableHead>
+                    <TableHead className="text-slate-700 w-[180px]">Name</TableHead>
+                    <TableHead className="text-slate-700 w-[90px]">Level</TableHead>
+                    <TableHead className="text-slate-700 w-[130px]">Default Bulanan</TableHead>
+                    <TableHead className="text-slate-700 w-[120px]">Default Harian</TableHead>
+                    <TableHead className="text-slate-700 w-[200px]">Description</TableHead>
+                    <TableHead className="text-slate-700 w-[100px]">Status</TableHead>
                     <TableHead className="text-center text-slate-700 w-[160px] pr-6">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -206,7 +214,7 @@ export default function GradeManagementPage() {
                 <TableBody>
                   {loading && (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-12 text-center text-slate-500">
+                      <TableCell colSpan={8} className="py-12 text-center text-slate-500">
                         Loading data...
                       </TableCell>
                     </TableRow>
@@ -214,7 +222,7 @@ export default function GradeManagementPage() {
 
                   {!loading && rows.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-12 text-center text-slate-500">
+                      <TableCell colSpan={8} className="py-12 text-center text-slate-500">
                         Belum ada grade yang terdaftar.
                       </TableCell>
                     </TableRow>
@@ -233,13 +241,19 @@ export default function GradeManagementPage() {
                         <TableCell className="pl-6 py-4 font-bold text-sky-700 uppercase">
                           {r.code}
                         </TableCell>
-                        <TableCell className="font-semibold text-slate-900 py-4">
+                        <TableCell className="font-medium text-foreground py-4">
                           {r.name}
                         </TableCell>
                         <TableCell className="font-semibold text-indigo-700 py-4">
                           Level {r.level}
                         </TableCell>
-                        <TableCell className="text-slate-600 py-4 max-w-[300px] truncate">
+                        <TableCell className="font-semibold text-emerald-700 py-4">
+                          {r.default_base_salary ? `Rp ${Number(r.default_base_salary).toLocaleString("id-ID")}` : "-"}
+                        </TableCell>
+                        <TableCell className="font-semibold text-amber-700 py-4">
+                          {r.default_mandays_rate ? `Rp ${Number(r.default_mandays_rate).toLocaleString("id-ID")}` : "-"}
+                        </TableCell>
+                        <TableCell className="text-slate-600 py-4 max-w-[200px] truncate">
                           {r.description || "-"}
                         </TableCell>
                         <TableCell className="py-4">
@@ -284,14 +298,14 @@ export default function GradeManagementPage() {
         {/* Modal Add/Edit */}
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 relative">
+            <div className="bg-white border border-border rounded shadow-sm p-4 my-4">
               <h2 className="text-xl font-black text-slate-900 mb-4">
                 {isEdit ? "Edit Grade" : "Add New Grade"}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Grade Code
                   </label>
                   <input
@@ -300,12 +314,12 @@ export default function GradeManagementPage() {
                     disabled={isEdit}
                     placeholder="e.g. staff, pm, pd"
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40 disabled:bg-slate-50 disabled:text-slate-400"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Name
                   </label>
                   <input
@@ -313,12 +327,12 @@ export default function GradeManagementPage() {
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="e.g. Project Manager"
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Hierarchy Level
                   </label>
                   <input
@@ -327,15 +341,43 @@ export default function GradeManagementPage() {
                     value={form.level}
                     onChange={(e) => setForm({ ...form, level: parseInt(e.target.value) || 1 })}
                     required
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                   <p className="mt-1 text-[11px] text-slate-500">
                     Nilai terkecil (1) mewakili tingkatan tertinggi (e.g. BOD).
                   </p>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">
+                      Default Gaji Bulanan
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 5000000"
+                      value={form.default_base_salary}
+                      onChange={(e) => setForm({ ...form, default_base_salary: e.target.value })}
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-800 mb-1">
+                      Default Gaji Harian
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 150000"
+                      value={form.default_mandays_rate}
+                      onChange={(e) => setForm({ ...form, default_mandays_rate: e.target.value })}
+                      className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1">
+                  <label className="block text-xs font-semibold text-slate-800 mb-1">
                     Description
                   </label>
                   <textarea
@@ -343,7 +385,7 @@ export default function GradeManagementPage() {
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     placeholder="Keterangan tambahan..."
                     rows="3"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40 resize-none"
+                    className="w-full border border-border rounded bg-white px-3 py-1.5 text-xs focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition-all"
                   />
                 </div>
 
@@ -355,7 +397,7 @@ export default function GradeManagementPage() {
                     onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                     className="h-4 w-4 rounded border-slate-200 text-sky-600 focus:ring-sky-500/40"
                   />
-                  <label htmlFor="is_active" className="text-sm font-semibold text-slate-800 cursor-pointer select-none">
+                  <label htmlFor="is_active" className="text-xs font-semibold text-slate-800 cursor-pointer select-none">
                     Grade is Active
                   </label>
                 </div>
@@ -365,13 +407,13 @@ export default function GradeManagementPage() {
                     type="button"
                     variant="outline"
                     onClick={() => setModalOpen(false)}
-                    className="rounded-2xl border-slate-200 hover:bg-slate-50"
+                    className="px-4 py-1.5 bg-white border border-border rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-extrabold hover:brightness-110"
+                    className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                   >
                     Save Grade
                   </Button>

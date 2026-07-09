@@ -22,7 +22,6 @@ class PayrollCalculationService
         if ($employee->status !== 'active') return ['status' => false, 'error' => 'Employee tidak aktif.'];
         if (!$employee->grade_id) return ['status' => false, 'error' => 'Grade ID kosong.'];
         if (!$employee->employment_type_id) return ['status' => false, 'error' => 'Employment Type kosong.'];
-        if (!$employee->work_basis_id) return ['status' => false, 'error' => 'Work Basis kosong.'];
 
         [$start, $end] = MandaysRecalculationService::getPeriodDates($periodMonth);
         $profile = $employee->currentSalaryProfile($start->toDateString());
@@ -31,8 +30,6 @@ class PayrollCalculationService
         
         $activeGradeId = $profile->grade_id ?? $employee->grade_id;
         $grade = $activeGradeId ? \App\Models\Grade::find($activeGradeId) : null;
-
-        $isMandays = $employee->workBasis->code === 'mandays';
 
         // Profile decrypt and fallback
         $salaryDecrypted = CryptoService::decryptAESGCM($profile->base_salary_enc);
@@ -46,15 +43,15 @@ class PayrollCalculationService
 
         $mandaysDecrypted = $profile->mandays_rate_enc ? CryptoService::decryptAESGCM($profile->mandays_rate_enc) : null;
         if ($mandaysDecrypted === null || $mandaysDecrypted === '') {
-            if ($profile->mandays_rate !== null) {
+            if ($profile->mandays_rate > 0) {
                 $mandaysDecrypted = (string)$profile->mandays_rate;
             } else {
-                $mandaysDecrypted = $grade ? (string)$grade->default_mandays_rate : null;
+                $mandaysDecrypted = $grade ? (string)$grade->default_mandays_rate : '0';
             }
         }
         
-        if ($isMandays && empty($mandaysDecrypted)) {
-            return ['status' => false, 'error' => 'Mandays rate kosong untuk basis mandays.'];
+        if ($mandaysDecrypted === null || $mandaysDecrypted === '') {
+            return ['status' => false, 'error' => 'Mandays rate kosong.'];
         }
 
         $summary = $employee->monthlyMandaysSummaries()->where('period_month', $periodMonth)->first();
@@ -110,18 +107,13 @@ class PayrollCalculationService
         $gaji_pokok = 0;
         $isProject = $employee->employmentType->code === 'project';
         $isFixRate = $employee->employmentType->code === 'fix_rate';
-        $isMonthly = $employee->workBasis->code === 'monthly';
-        $isMandays = $employee->workBasis->code === 'mandays';
         
         $mandaysRate = (float)$profile['mandays_rate'];
         $baseSalary = (float)$profile['base_salary'];
         $activeGradeId = $profile['grade_id'];
 
-        if ($isProject && $isMandays) {
-            $gaji_pokok = $mandaysRate * $summary->total_mandays;
-        } elseif ($isFixRate || $isMonthly) {
-            $gaji_pokok = $baseSalary;
-        }
+        // Gaji Pokok = Gaji Bulanan Tetap + (Gaji Harian * Kehadiran)
+        $gaji_pokok = $baseSalary + ($mandaysRate * $summary->total_mandays);
 
         $allowances = [];
         $total_allowances = 0;
@@ -253,7 +245,8 @@ class PayrollCalculationService
             // 9. HO Transport Meal
             $trHO = $getRate('ho_transport_meal');
             if ($trHO && $trHO['rate'] !== null) {
-                $mdHO = $summary->mandays_ho_wfo + $summary->mandays_ho_wfh;
+                // Biasanya transport & makan HO hanya untuk WFO
+                $mdHO = $summary->mandays_ho_wfo;
                 $amt = $trHO['rate'] * $mdHO;
                 $allowances[] = [
                     'allowance_type_id' => $trHO['type_id'],
@@ -261,7 +254,7 @@ class PayrollCalculationService
                     'amount' => $amt,
                     'rate_amount' => $trHO['rate'],
                     'mandays' => $mdHO,
-                    'calculation_detail' => ['mandays_ho_wfo' => $summary->mandays_ho_wfo, 'mandays_ho_wfh' => $summary->mandays_ho_wfh]
+                    'calculation_detail' => ['mandays_ho_wfo' => $summary->mandays_ho_wfo]
                 ];
             }
         }
@@ -374,9 +367,8 @@ class PayrollCalculationService
             AuditLog::create([
                 'user_id' => $recordedBy,
                 'action' => 'PAYROLL_AUTO_CALCULATE',
-                'entity_type' => 'Payroll',
-                'entity_id' => $payroll->id,
-                'details' => json_encode(['employee_id' => $employee->id, 'period_month' => $periodMonth, 'warnings' => $res['non_blocking_warnings']]),
+                'payroll_id' => $payroll->id,
+                'meta' => ['employee_id' => $employee->id, 'period_month' => $periodMonth, 'warnings' => $res['non_blocking_warnings']],
                 'ip_address' => request()->ip()
             ]);
 
@@ -463,9 +455,8 @@ class PayrollCalculationService
         AuditLog::create([
             'user_id' => $recordedBy,
             'action' => 'PAYROLL_BATCH_GENERATE',
-            'entity_type' => null,
-            'entity_id' => null,
-            'details' => json_encode(['period_month' => $periodMonth, 'total_employees' => count($employees), 'success' => $success, 'failed' => $failed]),
+            'payroll_id' => null,
+            'meta' => ['period_month' => $periodMonth, 'total_employees' => count($employees), 'success' => $success, 'failed' => $failed],
             'ip_address' => request()->ip()
         ]);
 
@@ -540,9 +531,8 @@ class PayrollCalculationService
             AuditLog::create([
                 'user_id' => $recordedBy,
                 'action' => 'PAYROLL_RECALCULATE',
-                'entity_type' => 'Payroll',
-                'entity_id' => $payroll->id,
-                'details' => json_encode(['force' => $force, 'has_override_overwritten' => $hasOverride]),
+                'payroll_id' => $payroll->id,
+                'meta' => ['force' => $force, 'has_override_overwritten' => $hasOverride],
                 'ip_address' => request()->ip()
             ]);
 
@@ -586,9 +576,8 @@ class PayrollCalculationService
             AuditLog::create([
                 'user_id' => $recordedBy,
                 'action' => 'PAYROLL_ALLOWANCE_OVERRIDE',
-                'entity_type' => 'Payroll',
-                'entity_id' => $payroll->id,
-                'details' => json_encode(['allowance_id' => $allowance->id, 'new_amount' => $amount, 'reason' => $reason]),
+                'payroll_id' => $payroll->id,
+                'meta' => ['allowance_id' => $allowance->id, 'new_amount' => $amount, 'reason' => $reason],
                 'ip_address' => request()->ip()
             ]);
 

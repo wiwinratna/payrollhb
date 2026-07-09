@@ -78,7 +78,7 @@ export default function Register() {
   const errText = "mt-1 text-[11px] text-rose-600";
 
   const StepCard = ({ n, title, desc }) => (
-    <div className="flex items-start gap-4 rounded-2xl bg-white/12 p-4 backdrop-blur">
+    <div className="flex items-start gap-4 rounded bg-white/12 p-4 backdrop-blur">
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/25 font-extrabold">
         {n}
       </div>
@@ -104,7 +104,7 @@ export default function Register() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 backdrop-blur">
                 <span className="h-2 w-2 rounded-full bg-white" />
-                <span className="text-sm font-semibold">Human Plus Institute</span>
+                <span className="text-xs font-semibold">Human Plus Institute</span>
               </div>
 
               <h1 className="mt-10 text-4xl font-black leading-tight">
@@ -149,7 +149,7 @@ export default function Register() {
             {/* top nav */}
             <div className="flex items-center justify-between">
               <div className="text-xs text-slate-500">Register / Staff</div>
-              <Link to="/login" className="text-sm font-semibold text-sky-700 hover:underline">
+              <Link to="/login" className="text-xs font-semibold text-sky-700 hover:underline">
                 Back to Login →
               </Link>
             </div>
@@ -160,7 +160,7 @@ export default function Register() {
             </p>
 
             {err && (
-              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <div className="mt-4 rounded bg-rose-50 px-3 py-2 text-xs text-rose-600 border border-rose-100">
                 {err}
               </div>
             )}
@@ -299,7 +299,7 @@ export default function Register() {
               {/* Footer */}
               <button
                 disabled={loading || !isRequiredFilled}
-                className="w-full rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-3 text-sm font-extrabold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60"
+                className="px-4 py-1.5 bg-blue-600 rounded text-xs font-medium text-white hover:bg-blue-700 transition-colors"
                 title={!isRequiredFilled ? "Lengkapi field wajib (Step 1 & 2)" : ""}
               >
                 {loading ? "Loading..." : "Register Staff"}
